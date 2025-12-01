@@ -1,0 +1,381 @@
+// Mock data para testes offline - Sorveteria/Gelateria Cremoso
+
+export const mockCategorias = [
+    {
+        idCategoria: 1,
+        nome: "Sorvetes",
+        imagemUrl: "/imgs/categorias/sorvetes.jpg",
+        ativa: true,
+    },
+    {
+        idCategoria: 2,
+        nome: "Picolés",
+        imagemUrl: "/imgs/categorias/picoles.jpg",
+        ativa: true,
+    },
+    {
+        idCategoria: 3,
+        nome: "Açaí",
+        imagemUrl: "/imgs/categorias/acai.jpg",
+        ativa: true,
+    },
+    {
+        idCategoria: 4,
+        nome: "Sundae",
+        imagemUrl: "/imgs/categorias/sundae.jpg",
+        ativa: true,
+    },
+    {
+        idCategoria: 5,
+        nome: "Milk Shake",
+        imagemUrl: "/imgs/categorias/milkshake.jpg",
+        ativa: true,
+    },
+    {
+        idCategoria: 6,
+        nome: "Bebidas",
+        imagemUrl: "/imgs/categorias/bebidas.jpg",
+        ativa: true,
+    },
+];
+
+export const mockProdutos = [
+    // SORVETES (categoria 1)
+    {
+        idProduto: 1,
+        descricao: "Sorvete de Morango",
+        preco: 12.50,
+        precoEmPontos: 50,
+        imagemUrl: "/uploadsFront/sorvete-morango.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 2,
+        descricao: "Sorvete de Chocolate Premium",
+        preco: 15.00,
+        precoEmPontos: 60,
+        imagemUrl: "/uploadsFront/sorvete-chocolate.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 3,
+        descricao: "Sorvete de Baunilha",
+        preco: 10.50,
+        precoEmPontos: 42,
+        imagemUrl: "/uploadsFront/sorvete-baunilha.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 4,
+        descricao: "Sorvete de Pistácio",
+        preco: 14.00,
+        precoEmPontos: 56,
+        imagemUrl: "/uploadsFront/sorvete-pistacio.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 5,
+        descricao: "Sorvete de Café",
+        preco: 13.50,
+        precoEmPontos: 54,
+        imagemUrl: "/uploadsFront/sorvete-cafe.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 6,
+        descricao: "Sorvete Doce de Leite",
+        preco: 13.00,
+        precoEmPontos: 52,
+        imagemUrl: "/uploadsFront/sorvete-docedeleite.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 7,
+        descricao: "Sorvete Cookies and Cream",
+        preco: 15.50,
+        precoEmPontos: 62,
+        imagemUrl: "/uploadsFront/sorvete-cookies.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+    {
+        idProduto: 8,
+        descricao: "Sorvete de Chá Verde",
+        preco: 14.50,
+        precoEmPontos: 58,
+        imagemUrl: "/uploadsFront/sorvete-chaverde.jpg",
+        ativo: true,
+        categoria: { idCategoria: 1, id: 1 },
+    },
+
+    // PICOLÉS (categoria 2)
+    {
+        idProduto: 9,
+        descricao: "Picolé de Morango",
+        preco: 7.50,
+        precoEmPontos: 30,
+        imagemUrl: "/uploadsFront/picole-morango.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+    {
+        idProduto: 10,
+        descricao: "Picolé de Limão",
+        preco: 6.50,
+        precoEmPontos: 26,
+        imagemUrl: "/uploadsFront/picole-limao.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+    {
+        idProduto: 11,
+        descricao: "Picolé de Chocolate",
+        preco: 8.00,
+        precoEmPontos: 32,
+        imagemUrl: "/uploadsFront/picole-chocolate.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+    {
+        idProduto: 12,
+        descricao: "Picolé de Melancia",
+        preco: 7.00,
+        precoEmPontos: 28,
+        imagemUrl: "/uploadsFront/picole-melancia.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+    {
+        idProduto: 13,
+        descricao: "Picolé de Laranja",
+        preco: 6.50,
+        precoEmPontos: 26,
+        imagemUrl: "/uploadsFront/picole-laranja.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+    {
+        idProduto: 14,
+        descricao: "Picolé Misto Morango e Chocolate",
+        preco: 8.50,
+        precoEmPontos: 34,
+        imagemUrl: "/uploadsFront/picole-misto.jpg",
+        ativo: true,
+        categoria: { idCategoria: 2, id: 2 },
+    },
+
+    // AÇAÍ (categoria 3)
+    {
+        idProduto: 15,
+        descricao: "Açaí com Granola",
+        preco: 18.50,
+        precoEmPontos: 74,
+        imagemUrl: "/uploadsFront/acai-granola.jpg",
+        ativo: true,
+        categoria: { idCategoria: 3, id: 3 },
+    },
+    {
+        idProduto: 16,
+        descricao: "Açaí com Frutas Vermelhas",
+        preco: 19.00,
+        precoEmPontos: 76,
+        imagemUrl: "/uploadsFront/acai-frutas.jpg",
+        ativo: true,
+        categoria: { idCategoria: 3, id: 3 },
+    },
+    {
+        idProduto: 17,
+        descricao: "Açaí Tradicional",
+        preco: 16.50,
+        precoEmPontos: 66,
+        imagemUrl: "/uploadsFront/acai-tradicional.jpg",
+        ativo: true,
+        categoria: { idCategoria: 3, id: 3 },
+    },
+    {
+        idProduto: 18,
+        descricao: "Açaí com Mel e Castanha",
+        preco: 20.00,
+        precoEmPontos: 80,
+        imagemUrl: "/uploadsFront/acai-mel.jpg",
+        ativo: true,
+        categoria: { idCategoria: 3, id: 3 },
+    },
+    {
+        idProduto: 19,
+        descricao: "Açaí Bowl Premium",
+        preco: 24.50,
+        precoEmPontos: 98,
+        imagemUrl: "/uploadsFront/acai-bowl.jpg",
+        ativo: true,
+        categoria: { idCategoria: 3, id: 3 },
+    },
+
+    // SUNDAE (categoria 4)
+    {
+        idProduto: 20,
+        descricao: "Sundae Clássico",
+        preco: 16.50,
+        precoEmPontos: 66,
+        imagemUrl: "/uploadsFront/sundae-classico.jpg",
+        ativo: true,
+        categoria: { idCategoria: 4, id: 4 },
+    },
+    {
+        idProduto: 21,
+        descricao: "Sundae Chocolate Derretido",
+        preco: 18.00,
+        precoEmPontos: 72,
+        imagemUrl: "/uploadsFront/sundae-chocolate.jpg",
+        ativo: true,
+        categoria: { idCategoria: 4, id: 4 },
+    },
+    {
+        idProduto: 22,
+        descricao: "Sundae Morango Delux",
+        preco: 17.50,
+        precoEmPontos: 70,
+        imagemUrl: "/uploadsFront/sundae-morango.jpg",
+        ativo: true,
+        categoria: { idCategoria: 4, id: 4 },
+    },
+    {
+        idProduto: 23,
+        descricao: "Sundae Caramelo e Amendoim",
+        preco: 19.00,
+        precoEmPontos: 76,
+        imagemUrl: "/uploadsFront/sundae-caramelo.jpg",
+        ativo: true,
+        categoria: { idCategoria: 4, id: 4 },
+    },
+    {
+        idProduto: 24,
+        descricao: "Sundae Nutella",
+        preco: 20.50,
+        precoEmPontos: 82,
+        imagemUrl: "/uploadsFront/sundae-nutella.jpg",
+        ativo: true,
+        categoria: { idCategoria: 4, id: 4 },
+    },
+
+    // MILK SHAKE (categoria 5)
+    {
+        idProduto: 25,
+        descricao: "Milk Shake de Morango",
+        preco: 12.00,
+        precoEmPontos: 48,
+        imagemUrl: "/uploadsFront/milkshake-morango.jpg",
+        ativo: true,
+        categoria: { idCategoria: 5, id: 5 },
+    },
+    {
+        idProduto: 26,
+        descricao: "Milk Shake de Chocolate",
+        preco: 12.50,
+        precoEmPontos: 50,
+        imagemUrl: "/uploadsFront/milkshake-chocolate.jpg",
+        ativo: true,
+        categoria: { idCategoria: 5, id: 5 },
+    },
+    {
+        idProduto: 27,
+        descricao: "Milk Shake de Baunilha",
+        preco: 10.50,
+        precoEmPontos: 42,
+        imagemUrl: "/uploadsFront/milkshake-baunilha.jpg",
+        ativo: true,
+        categoria: { idCategoria: 5, id: 5 },
+    },
+    {
+        idProduto: 28,
+        descricao: "Milk Shake de Oreo",
+        preco: 14.00,
+        precoEmPontos: 56,
+        imagemUrl: "/uploadsFront/milkshake-oreo.jpg",
+        ativo: true,
+        categoria: { idCategoria: 5, id: 5 },
+    },
+    {
+        idProduto: 29,
+        descricao: "Milk Shake de Banana com Nutella",
+        preco: 14.50,
+        precoEmPontos: 58,
+        imagemUrl: "/uploadsFront/milkshake-banana.jpg",
+        ativo: true,
+        categoria: { idCategoria: 5, id: 5 },
+    },
+
+    // BEBIDAS (categoria 6)
+    {
+        idProduto: 30,
+        descricao: "Suco de Laranja Natural",
+        preco: 9.50,
+        precoEmPontos: 38,
+        imagemUrl: "/uploadsFront/suco-laranja.jpg",
+        ativo: true,
+        categoria: { idCategoria: 6, id: 6 },
+    },
+    {
+        idProduto: 31,
+        descricao: "Suco de Morango",
+        preco: 10.00,
+        precoEmPontos: 50,
+        imagemUrl: "/uploadsFront/suco-morango.jpg",
+        ativo: true,
+        categoria: { idCategoria: 6, id: 6 },
+    },
+    {
+        idProduto: 32,
+        descricao: "Refrigerante 2L",
+        preco: 8.50,
+        precoEmPontos: 34,
+        imagemUrl: "/uploadsFront/refrigerante.jpg",
+        ativo: true,
+        categoria: { idCategoria: 6, id: 6 },
+    },
+    {
+        idProduto: 33,
+        descricao: "Água com Gás",
+        preco: 5.50,
+        precoEmPontos: 22,
+        imagemUrl: "/uploadsFront/agua-gas.jpg",
+        ativo: true,
+        categoria: { idCategoria: 6, id: 6 },
+    },
+    {
+        idProduto: 34,
+        descricao: "Chá Gelado",
+        preco: 7.00,
+        precoEmPontos: 28,
+        imagemUrl: "/uploadsFront/cha-gelado.jpg",
+        ativo: true,
+        categoria: { idCategoria: 6, id: 6 },
+    },
+];
+
+// Função para simular delay de API
+export const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Função mock para listar categorias
+export const mockListarCategorias = async () => {
+    await delay(500); // Simula latência de rede
+    return {
+        data: mockCategorias,
+        status: 200,
+    };
+};
+
+// Função mock para listar produtos
+export const mockListarProdutos = async () => {
+    await delay(500); // Simula latência de rede
+    return {
+        data: mockProdutos,
+        status: 200,
+    };
+};
