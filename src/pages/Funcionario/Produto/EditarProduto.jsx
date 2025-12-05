@@ -193,19 +193,13 @@ const EditarProduto = () => {
           )}
 
           <input
-            type="file"
+        
+            type="file" className="ImgFile"
             accept="image/*"
             onChange={handleFileChange}
           />
 
-          {/* Campo opcional se quiser editar URL manualmente */}
-          <input
-            name="imagemUrl"
-            type="text"
-            placeholder="URL da imagem (opcional)"
-            value={formData.imagemUrl}
-            onChange={handleChange}
-          />
+
 
           {file && (
             <small>
@@ -266,4 +260,4 @@ const EditarProduto = () => {
   );
 };
 
-export default EditarProduto;
+export default EditarProduto;

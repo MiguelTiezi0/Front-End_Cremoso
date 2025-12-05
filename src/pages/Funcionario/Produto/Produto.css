@@ -8,7 +8,7 @@
   background: #fff;
   padding: 25px;
   border-radius: 12px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .cadastro-produto-form label {
@@ -69,7 +69,7 @@
   background: #f9f9f9;
   padding: 30px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .input-group {
@@ -100,7 +100,7 @@
 .input-group textarea:focus {
   outline: none;
   border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .checkbox-group {
@@ -164,7 +164,7 @@
   max-width: 200px;
   max-height: 200px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .progress-bar {
@@ -180,4 +180,343 @@
   height: 100%;
   background: linear-gradient(90deg, #28a745, #20c997);
   transition: width 0.3s ease;
+}
+
+/* Variáveis CSS para fácil manutenção das cores */
+:root {
+  --turquesa-principal: #00bcd4; /* Turquesa claro */
+  --turquesa-escuro: #0097a7; /* Turquesa para hover/ativo */
+  --fundo-claro: #f4f7f6; /* Fundo do container */
+  --card-fundo: #ffffff; /* Fundo do formulário */
+  --texto-principal: #333333;
+  --texto-secundario: #607d8b;
+  --borda-clara: #cfd8dc;
+  --vermelho-cancelar: #d32f2f;
+}
+
+/* Estilo geral do container principal */
+.editar-produto-container {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: var(--card-fundo);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--texto-principal);
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  font-size: 1.2rem;
+  color: var(--turquesa-escuro);
+}
+
+.editar-produto-container h2 {
+  color: var(--turquesa-escuro);
+  border-bottom: 2px solid var(--turquesa-principal);
+  padding-bottom: 15px;
+  margin-bottom: 25px;
+}
+
+/* Estilo do formulário */
+.editar-produto-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* Agrupamento de inputs (Label + Input) */
+.input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group label {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--texto-secundario);
+}
+
+.input-group input,
+.input-group select {
+  padding: 12px;
+  border: 1px solid var(--borda-clara);
+  border-radius: 6px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box; /* Garante que padding não aumente a largura total */
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  border-color: var(--turquesa-principal);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.2);
+}
+
+/* --- SEÇÃO DE UPLOAD DE ARQUIVO PERSONALIZADA --- */
+
+/* Esconde o input de arquivo padrão */
+.input-file-hidden {
+  display: none;
+}
+
+/* Estiliza o label para que pareça um botão bonito */
+.custom-file-upload {
+  background-color: var(--turquesa-principal);
+  color: white;
+  padding: 12px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  margin-top: 10px;
+  transition: background-color 0.3s;
+  width: fit-content; /* Ajusta a largura ao conteúdo */
+}
+
+.custom-file-upload:hover {
+  background-color: var(--turquesa-escuro);
+}
+
+/* --- FIM SEÇÃO DE UPLOAD DE ARQUIVO PERSONALIZADA --- */
+
+/* Checkbox group adjustments */
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  margin-right: 10px;
+  /* Estilização básica de checkbox (pode ser mais avançada com CSS puro) */
+  width: auto;
+}
+
+.input-group small {
+  margin-top: 5px;
+  font-size: 0.85rem;
+  color: var(--turquesa-escuro);
+}
+
+/* Preview de Imagem */
+.preview-imagem img {
+  max-width: 100%;
+  height: auto;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  border: 1px solid var(--borda-clara);
+  object-fit: cover;
+}
+
+/* Botões de Ação */
+.botoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.botoes button {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  font-weight: 600;
+}
+
+.btn-salvar {
+  background-color: var(--turquesa-principal);
+  color: white;
+}
+
+.btn-salvar:hover:not(:disabled) {
+  background-color: var(--turquesa-escuro);
+  transform: translateY(-2px);
+}
+
+.btn-salvar:disabled {
+  background-color: #b0bec5;
+  cursor: not-allowed;
+}
+
+.btn-cancelar {
+  background-color: var(--vermelho-cancelar);
+  color: white;
+}
+
+.btn-cancelar:hover {
+  background-color: #c62828;
+  transform: translateY(-2px);
+}
+
+/* Responsividade básica */
+@media (max-width: 768px) {
+  .editar-produto-container {
+    margin: 20px;
+    padding: 20px;
+  }
+
+  .botoes {
+    flex-direction: column;
+  }
+}
+.ImgFile[type="file"]::file-selector-button {
+  background-color: (blue);
+}
+
+/* Cadastro */
+
+/* Produto.css */
+
+/* Variáveis CSS para fácil manutenção das cores */
+:root {
+  --primary-color: #00bcd4; /* Azul Turquesa principal (Cyan 500 material design) */
+  --primary-dark: #0097a7; /* Um turquesa mais escuro para hover/foco */
+  --background-color: #f0f4f8; /* Fundo claro e suave */
+  --card-bg: #ffffff; /* Fundo do formulário (cartão) */
+  --text-color: #333333; /* Cor do texto padrão */
+  --border-color: #cfd8dc; /* Cor da borda dos inputs */
+  --success-color: #4caf50; /* Cor para mensagens de sucesso */
+  --error-color: #f44336; /* Cor para mensagens de erro */
+}
+
+.cadastro-produto-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-color);
+}
+
+.cadastro-produto-container h2 {
+  color: var(--primary-dark);
+  text-align: center;
+  margin-bottom: 25px;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 10px;
+}
+
+.cadastro-produto-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Estilo unificado para inputs, selects e botões */
+.cadastro-produto-form input,
+.cadastro-produto-form select,
+.cadastro-produto-form button {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box; /* Garante que padding não aumente a largura */
+}
+
+.cadastro-produto-form input:focus,
+.cadastro-produto-form select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.2); /* Sombra suave turquesa */
+}
+
+.cadastro-produto-form label {
+  font-weight: 600;
+  margin-bottom: -5px; /* Ajusta o espaçamento entre label e input */
+  display: block;
+  color: var(--text-color);
+}
+
+/* Estilo específico para o checkbox (que fica inline com o texto 'Ativo') */
+.cadastro-produto-form input[type="checkbox"] {
+  width: auto; /* Desfaz o width: 100% dos outros inputs */
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.cadastro-produto-form label input[type="checkbox"] {
+  display: inline;
+}
+
+/* Botão de Cadastrar */
+.btn-cadastrar {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background-color 0.3s ease;
+  font-weight: bold;
+}
+
+.btn-cadastrar:hover {
+  background-color: var(--primary-dark);
+}
+
+.btn-cadastrar:disabled {
+  background-color: #b0bec5; /* Cinza claro quando desativado/carregando */
+  cursor: not-allowed;
+}
+
+/* Mensagens de feedback (sucesso/erro) */
+.sucesso {
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  background-color: #e8f5e9; /* Fundo verde claro para sucesso */
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
+}
+
+/* Se a mensagem de sucesso for usada para erro (classe 'erro' não existe no seu JS, mas se quiser adicionar): */
+/* .erro { ... } */
+
+/* Preview da Imagem e Barra de Progresso */
+.imagem-preview {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.imagem-preview img {
+  max-width: 100%;
+  height: auto;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  overflow: hidden;
+  height: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  transition: width 0.4s ease;
+}
+
+@media (max-width: 768px) {
+  .cadastro-produto-container {
+    margin: 20px 10px;
+    padding: 20px;
+  }
 }

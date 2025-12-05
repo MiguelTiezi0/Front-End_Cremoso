@@ -9,7 +9,8 @@ import {
   IceCreamCone,
 } from "lucide-react";
 import "./Home.css";
-import logoRosa from "../../assets/logoRosapng.png";
+import logoAzulCremoso from "../../assets/logoAzul.png";
+import logoPuppini from "../../assets/logoPuppini.png"
 
 const URL_BACKEND =
   process.env.REACT_APP_URL_BACKEND || "http://localhost:8080";
@@ -116,7 +117,8 @@ const Home = () => {
               <h2 className="usuario-nome">Rauni Wink</h2>
             </div>
           </div>
-          <img src={logoRosa} alt="Logo" className="logo" />
+          <img src={logoPuppini} alt="Logo" className="logo" />
+          <img src={logoAzulCremoso} alt="Logo" className="logo" />
 
           <Bell className="icone-bell" size={32} />
 

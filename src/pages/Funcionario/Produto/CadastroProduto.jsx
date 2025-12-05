@@ -177,7 +177,7 @@ const CadastroProduto = () => {
         <label>Imagem *</label>
         <input
           name="imagem"
-          type="file"
+          type="file" 
           onChange={handleImagemChange}
           accept="image/png, image/jpeg, image/jpg"
           required={!imagemPreview}

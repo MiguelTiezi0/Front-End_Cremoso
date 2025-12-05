@@ -51,42 +51,224 @@
   border: none;
   border-radius: 8px;
   font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  width: 100%;
+  /* Categoria.css - organizado
+     - Variáveis no topo
+     - Estrutura: containers, formulários, inputs, botões, preview, mensagens, utilitários
+  */
+
+  :root {
+    --primary-color: #00bcd4; /* Azul Turquesa principal */
+    --primary-dark: #0097a7;  /* Turquesa escuro para hover/foco */
+    --background-color: #f0f4f8;
+    --card-bg: #ffffff;
+    --text-color: #333333;
+    --border-color: #cfd8dc;
+    --success-color: #4caf50;
+    --danger-color: #f44336;
+    --radius: 12px;
+    --shadow-1: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  /* ---------- Containers ---------- */
+  .cadastro-container,
+  .editar-container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 28px;
+    background-color: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-color);
+  }
+
+  .cadastro-container h2,
+  .editar-container h2 {
+    color: var(--primary-dark);
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+  }
+
+  /* Small helper text */
+  small {
+    color: #666;
+    margin-top: 5px;
+    display: block;
+    font-size: 0.8em;
+  }
+
+  /* ---------- Form (Cadastro / Edição) ---------- */
+  .cadastro-form,
+  .editar-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cadastro-form label,
+  .editar-form label {
+    font-weight: 600;
+    color: var(--text-color);
+  }
+
+  /* Unified inputs */
+  .cadastro-form input[type="text"],
+  .cadastro-form textarea,
+  .cadastro-form input[type="file"],
+  .editar-form input[type="text"],
+  .editar-form textarea,
+  .editar-form input[type="file"] {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 16px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 6px;
+    background: linear-gradient(180deg, #fff, #fbfbfb);
+  }
+
+  .cadastro-form input:focus,
+  .cadastro-form textarea:focus,
+  .editar-form input:focus,
+  .editar-form textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(0, 188, 212, 0.08);
+  }
+
+  /* Checkbox styling */
+  .cadastro-form input[type="checkbox"],
+  .editar-form input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+    vertical-align: middle;
+    margin-top: 0;
+  }
+
+  /* ---------- Buttons ---------- */
+  .botoes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .btn-cadastrar,
+  .btn-salvar,
+  .btn-cancelar {
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.22s ease, transform 0.12s ease;
+    border: none;
+    width: 100%;
+  }
+
+  .btn-cadastrar,
+  .btn-salvar {
+    background-color: var(--primary-color);
+    color: white;
+    margin-top: 6px;
+  }
+
+  .btn-cadastrar:hover,
+  .btn-salvar:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+  }
+
+  .btn-cadastrar:disabled,
+  .btn-salvar:disabled {
+    background-color: #b0bec5;
+    cursor: not-allowed;
+  }
+
+  .btn-cancelar {
+    background-color: #f3f4f5;
+    color: var(--text-color);
+  }
+
+  .btn-cancelar:hover {
+    background-color: #e8eaec;
+  }
+
+  /* Danger variant (if needed) */
+  .btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+  }
+
+  /* ---------- Messages & Feedback ---------- */
+  .sucesso {
+    padding: 14px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 700;
+    background-color: #e8f5e9;
+    color: var(--success-color);
+    border: 1px solid rgba(76,175,80,0.15);
+  }
+
+  .erro {
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    background-color: #fff0f0;
+    color: var(--danger-color);
+    border: 1px solid rgba(244,67,54,0.08);
+  }
+
+  /* ---------- Preview imagem ---------- */
+  .preview-imagem {
+    margin: 8px 0;
+    text-align: center;
+  }
+
+  .preview-imagem img {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+  }
+
+  /* ---------- Utilities / Misc ---------- */
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .editar-container > div {
+    text-align: center;
+    padding: 16px;
+    font-style: italic;
+    color: var(--primary-dark);
+  }
+
+  /* Responsividade */
+  @media (max-width: 768px) {
+    .cadastro-container,
+    .editar-container {
+      padding: 18px;
+      margin: 20px;
+    }
+
+    .botoes {
+      gap: 8px;
+    }
+  }
+
+  /* End of Categoria.css */
 }
-
-.btn-cancelar {
-  background: #6c757d;
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.botoes {
-  display: flex;
-  gap: 10px;
-}
-
-.sucesso {
-  background: #d4edda;
-  color: #155724;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-
-.preview-imagem {
-  margin: 10px 0;
-  text-align: center;
-}
-
-.preview-imagem img {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-

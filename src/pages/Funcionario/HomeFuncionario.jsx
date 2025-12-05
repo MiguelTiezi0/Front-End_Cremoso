@@ -39,7 +39,6 @@ const HomeFuncionario = () => {
     <div className="home-funcionario">
       <header className="header-funcionario">
         <h1>🍨 Cremoso - Painel Funcionário</h1>
-        <p>Bem-vindo ao gerenciamento do cardápio</p>
       </header>
 
       {/* Estatísticas */}
