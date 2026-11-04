@@ -12,7 +12,8 @@ import { produtoSchema, type ProdutoForm } from './validation';
 import { categoriaService, produtoService } from '@/api/catalogoService';
 import { useToast } from '@/context/ToastContext';
 import type { Categoria, Produto, ProdutoInput } from '@/types';
-import { extractErrorMessage, formatBRL, formatDataHora } from '@/lib/format';
+import { SEM_VALOR, extractErrorMessage, formatBRL, formatDataHora } from '@/lib/format';
+import { ProdutoImagem } from '@/components/ui/ProdutoImagem';
 
 const emptyForm: ProdutoForm = {
   descricao: '',
@@ -90,11 +91,13 @@ export default function ProdutosPage() {
     reset({
       descricao: p.descricao,
       categoriaId: p.categoria.id,
-      preco: p.preco,
+      // O input mostra o texto como veio: com toFixed aparece "18.90", e não "18.9".
+      // O zod (coerce) converte de volta para número no submit.
+      preco: p.preco.toFixed(2) as unknown as number,
       quantidade: p.quantidade,
       precoEmPontos: p.precoEmPontos,
       ganhoDePontos: p.ganhoDePontos,
-      imagemUrl: p.imagemUrl,
+      imagemUrl: p.imagemUrl ?? '',
       ativo: p.ativo,
     });
     setModalOpen(true);
@@ -228,10 +231,10 @@ export default function ProdutosPage() {
                   <tr key={p.id} className="hover:bg-cream-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img
+                        <ProdutoImagem
                           src={p.imagemUrl}
                           alt=""
-                          className="h-10 w-10 rounded-xl object-cover"
+                          className="h-10 w-10 shrink-0 rounded-xl"
                         />
                         <div>
                           <p className="font-bold text-slate-700">{p.descricao}</p>
@@ -249,7 +252,8 @@ export default function ProdutosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
-                      {p.precoEmPontos} / +{p.ganhoDePontos}
+                      {p.precoEmPontos ?? SEM_VALOR} /{' '}
+                      {p.ganhoDePontos === null ? SEM_VALOR : `+${p.ganhoDePontos}`}
                     </td>
                     <td className="px-4 py-3">
                       {togglingId === p.id ? (
@@ -290,7 +294,7 @@ export default function ProdutosPage() {
           <div className="grid gap-3 md:hidden">
             {filtrados.map((p) => (
               <div key={p.id} className="card flex gap-3">
-                <img src={p.imagemUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
+                <ProdutoImagem src={p.imagemUrl} alt="" className="h-16 w-16 shrink-0 rounded-xl" />
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-bold text-slate-700">{p.descricao}</p>
@@ -375,7 +379,7 @@ export default function ProdutosPage() {
               label="Preço em pontos"
               type="number"
               min="0"
-              hint="Para resgate"
+              hint="Para resgate (opcional)"
               error={errors.precoEmPontos?.message}
               {...register('precoEmPontos')}
             />
@@ -383,7 +387,7 @@ export default function ProdutosPage() {
               label="Ganho de pontos"
               type="number"
               min="0"
-              hint="Na compra"
+              hint="Na compra (opcional)"
               error={errors.ganhoDePontos?.message}
               {...register('ganhoDePontos')}
             />

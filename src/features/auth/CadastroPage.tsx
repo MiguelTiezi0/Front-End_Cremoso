@@ -98,11 +98,16 @@ export default function CadastroPage() {
           name="telefone"
           render={({ field }) => (
             <TextInput
+              id="telefone"
+              name={field.name}
+              ref={field.ref}
               label="Telefone"
               inputMode="tel"
+              autoComplete="tel"
               placeholder="(11) 99999-9999"
               error={errors.telefone?.message}
               value={field.value ?? ''}
+              onBlur={field.onBlur}
               onChange={(e) => field.onChange(maskTelefone(e.target.value))}
             />
           )}

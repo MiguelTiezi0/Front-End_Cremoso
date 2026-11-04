@@ -26,7 +26,10 @@ interface DbShape {
   produtos: Produto[];
   enderecos: Endereco[];
   pedidos: Pedido[];
-  movimentos: MovimentoPontos[];
+  movimentos: MovimentoPontos[]; // extrato de exemplo dos usuários do próprio mock
+  // Extrato de pontos de usuários que não são do mock (modo misto: login pela API real),
+  // por id do usuário. Opcional para continuar lendo bancos já salvos no localStorage.
+  movimentosPorUsuario?: Record<string, MovimentoPontos[]>;
   notificacoes: Notificacao[];
 }
 

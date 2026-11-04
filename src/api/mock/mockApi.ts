@@ -14,6 +14,7 @@ import type {
   RegisterPayload,
   User,
 } from '@/types';
+import { MOCK } from '@/config/mock';
 import { db, nextId, persist } from './db';
 import { MockUser } from './seed';
 
@@ -32,6 +33,20 @@ const stripSenha = (u: MockUser): User => {
   const { senha: _senha, ...rest } = u;
   return rest;
 };
+
+// Conta do mock correspondente ao usuário logado. Só existe quando o próprio login é do
+// mock (MOCK.auth); no modo misto o usuário vem da API real e pode ter o mesmo id/e-mail
+// de uma conta de exemplo sem ser ela.
+const usuarioDoMock = (user: User): MockUser | undefined =>
+  MOCK.auth ? db.users.find((u) => u.id === user.id) : undefined;
+
+// Extrato de pontos do usuário logado: o de exemplo para contas do mock, um por usuário
+// (começando vazio) para contas reais.
+function movimentosDe(user: User): MovimentoPontos[] {
+  if (usuarioDoMock(user)) return db.movimentos;
+  db.movimentosPorUsuario ??= {};
+  return (db.movimentosPorUsuario[String(user.id)] ??= []);
+}
 
 const fakeToken = (u: MockUser) =>
   `mock.jwt.${btoa(`${u.id}:${u.role}:${Date.now()}`)}`;
@@ -257,35 +272,38 @@ export const mockApi = {
   // Pontos / Fidelidade
   // -------------------------------------------------------------------------
 
-  async getSaldoPontos(userId: number): Promise<number> {
+  // Usam o usuário logado (AuthContext) e o produto recebidos, não buscas por id no banco
+  // do mock: assim funcionam também no modo misto (login e catálogo pela API real).
+
+  async getSaldoPontos(user: User): Promise<number> {
     await delay(150);
-    const user = db.users.find((u) => u.id === userId);
-    return user?.saldoPontos ?? 0;
+    return usuarioDoMock(user)?.saldoPontos ?? user.saldoPontos;
   },
 
-  async listMovimentosPontos(): Promise<MovimentoPontos[]> {
+  async listMovimentosPontos(user: User): Promise<MovimentoPontos[]> {
     await delay(250);
-    return structuredClone(db.movimentos).sort((a, b) => b.data.localeCompare(a.data));
+    return structuredClone(movimentosDe(user)).sort((a, b) => b.data.localeCompare(a.data));
   },
 
-  async resgatarProduto(userId: number, produtoId: number): Promise<MovimentoPontos> {
+  async resgatarProduto(user: User, produto: Produto): Promise<MovimentoPontos> {
     await delay();
-    const user = db.users.find((u) => u.id === userId);
-    const produto = db.produtos.find((p) => p.id === produtoId);
-    if (!user) apiError(404, 'Usuário não encontrado.');
-    if (!produto) apiError(404, 'Produto não encontrado.');
-    if (user.saldoPontos < produto.precoEmPontos) {
+    const custo = produto.precoEmPontos;
+    if (custo === null || custo <= 0) apiError(400, 'Produto não disponível para resgate.');
+    const doMock = usuarioDoMock(user);
+    if ((doMock?.saldoPontos ?? user.saldoPontos) < custo) {
       apiError(400, 'Pontos insuficientes para este resgate.');
     }
-    user.saldoPontos -= produto.precoEmPontos;
+    // O saldo exibido vem do AuthContext (o PontosPage atualiza); no mock puro também
+    // atualizamos a conta do mock para o próximo login.
+    if (doMock) doMock.saldoPontos -= custo;
     const movimento: MovimentoPontos = {
       id: nextId(),
       data: new Date().toISOString(),
       tipo: 'RESGATE',
-      pontos: -produto.precoEmPontos,
+      pontos: -custo,
       descricao: `Resgate: ${produto.descricao}`,
     };
-    db.movimentos.push(movimento);
+    movimentosDe(user).push(movimento);
     persist();
     return movimento;
   },

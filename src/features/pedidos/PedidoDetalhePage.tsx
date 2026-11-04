@@ -11,10 +11,12 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CardSkeleton } from '@/components/ui/Loaders';
-import { ErrorState, StatusPedidoBadge, STATUS_LABEL } from '@/components/ui/Misc';
+import { ErrorState, StatusPedidoBadge } from '@/components/ui/Misc';
+import { STATUS_LABEL } from '@/lib/statusPedido';
 import { pedidoService } from '@/api/pedidoService';
 import type { FormaPagamento, Pedido, StatusPedido } from '@/types';
 import { extractErrorMessage, formatBRL, formatDataHora } from '@/lib/format';
+import { proximoIntervalo } from '@/lib/polling';
 
 // Fluxo de status para desenhar a linha do tempo de acompanhamento.
 const FLUXO: StatusPedido[] = ['RECEBIDO', 'EM_PREPARO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'];
@@ -27,6 +29,7 @@ const PAGAMENTO_LABEL: Record<FormaPagamento, string> = {
 };
 
 // Polling: atualiza o pedido periodicamente. Preparado para troca por WebSocket futuramente.
+// Depois de um erro, espaça as tentativas com o mesmo backoff das notificações.
 const POLL_MS = 15_000;
 
 export default function PedidoDetalhePage() {
@@ -38,21 +41,34 @@ export default function PedidoDetalhePage() {
   useEffect(() => {
     if (!id) return;
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let intervalo = POLL_MS;
 
-    const buscar = (initial = false) => {
-      if (initial) setLoading(true);
+    const ciclo = () => {
       pedidoService
         .get(Number(id))
-        .then((p) => active && setPedido(p))
-        .catch((e) => active && setError(extractErrorMessage(e)))
-        .finally(() => active && initial && setLoading(false));
+        .then((p) => {
+          if (!active) return;
+          setPedido(p);
+          setError(null);
+          intervalo = proximoIntervalo(true, intervalo, POLL_MS);
+        })
+        .catch((e) => {
+          if (!active) return;
+          setError(extractErrorMessage(e));
+          intervalo = proximoIntervalo(false, intervalo, POLL_MS);
+        })
+        .finally(() => {
+          if (!active) return;
+          setLoading(false);
+          timer = setTimeout(ciclo, intervalo);
+        });
     };
 
-    buscar(true);
-    const timer = setInterval(() => buscar(false), POLL_MS);
+    ciclo();
     return () => {
       active = false;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [id]);
 

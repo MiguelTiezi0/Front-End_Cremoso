@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TextInput } from '@/components/ui/FormField';
 import { Spinner, RowSkeleton } from '@/components/ui/Loaders';
-import { EmptyState, StatusPedidoBadge } from '@/components/ui/Misc';
+import { EmptyState, ErrorState, StatusPedidoBadge } from '@/components/ui/Misc';
 import { perfilSchema, type PerfilForm } from './validation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -20,7 +20,9 @@ export default function PerfilPage() {
   const { user, isAdmin, updateUser } = useAuth();
   const toast = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loadingPedidos, setLoadingPedidos] = useState(true);
+  // Admin não tem histórico de pedidos: nem chega a carregar.
+  const [loadingPedidos, setLoadingPedidos] = useState(!isAdmin);
+  const [erroPedidos, setErroPedidos] = useState<string | null>(null);
 
   const {
     register,
@@ -43,14 +45,14 @@ export default function PerfilPage() {
   }, [user, reset]);
 
   useEffect(() => {
-    if (isAdmin) {
-      setLoadingPedidos(false);
-      return;
-    }
+    if (isAdmin) return;
     let active = true;
     pedidoService
       .list()
       .then((data) => active && setPedidos(data))
+      .catch(
+        (e) => active && setErroPedidos(extractErrorMessage(e, 'Não foi possível carregar seus pedidos.')),
+      )
       .finally(() => active && setLoadingPedidos(false));
     return () => {
       active = false;
@@ -98,10 +100,15 @@ export default function PerfilPage() {
               name="telefone"
               render={({ field }) => (
                 <TextInput
+                  id="telefone"
+                  name={field.name}
+                  ref={field.ref}
                   label="Telefone"
                   inputMode="tel"
+                  autoComplete="tel"
                   error={errors.telefone?.message}
                   value={field.value ?? ''}
+                  onBlur={field.onBlur}
                   onChange={(e) => field.onChange(maskTelefone(e.target.value))}
                 />
               )}
@@ -152,6 +159,8 @@ export default function PerfilPage() {
                 <RowSkeleton cols={3} />
                 <RowSkeleton cols={3} />
               </div>
+            ) : erroPedidos ? (
+              <ErrorState message={erroPedidos} />
             ) : pedidos.length === 0 ? (
               <EmptyState
                 icon={<ShoppingBag className="h-8 w-8" />}

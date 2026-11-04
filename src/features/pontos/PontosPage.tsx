@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Gift, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ProdutoCard } from '@/components/ProdutoCard';
@@ -12,6 +12,9 @@ import { produtoService } from '@/api/catalogoService';
 import type { MovimentoPontos, Produto } from '@/types';
 import { extractErrorMessage, formatDataHora, formatPontos } from '@/lib/format';
 
+// Só entram no resgate produtos com preço em pontos (o campo é opcional no contrato).
+const custo = (p: Produto): number => p.precoEmPontos ?? 0;
+
 export default function PontosPage() {
   const { user, updateUser } = useAuth();
   const toast = useToast();
@@ -23,28 +26,35 @@ export default function PontosPage() {
 
   const saldo = user?.saldoPontos ?? 0;
 
-  const carregar = () => {
-    setLoading(true);
-    setError(null);
-    Promise.all([pontosService.extrato(), produtoService.list()])
+  // Só faz setState nos callbacks da promise, então pode rodar direto no effect.
+  // Depende do usuário: quando o saldo muda (ex.: depois de um resgate), recarrega o extrato.
+  const buscar = useCallback(() => {
+    if (!user) return;
+    Promise.all([pontosService.extrato(user), produtoService.list()])
       .then(([extrato, prods]) => {
         setMovimentos(extrato);
-        setProdutos(prods.filter((p) => p.ativo && p.precoEmPontos > 0));
+        setProdutos(prods.filter((p) => p.ativo && custo(p) > 0));
       })
       .catch((e) => setError(extractErrorMessage(e)))
       .finally(() => setLoading(false));
-  };
+  }, [user]);
 
-  useEffect(carregar, []);
+  useEffect(buscar, [buscar]);
+
+  const carregar = () => {
+    setLoading(true);
+    setError(null);
+    buscar();
+  };
 
   const confirmarResgate = async () => {
     if (!resgatando || !user) return;
     try {
-      await pontosService.resgatar(user.id, resgatando.id);
-      updateUser({ saldoPontos: saldo - resgatando.precoEmPontos });
+      await pontosService.resgatar(user, resgatando);
+      // Atualizar o usuário recarrega o extrato (o `buscar` depende dele).
+      updateUser({ saldoPontos: saldo - custo(resgatando) });
       toast.success(`Resgate de "${resgatando.descricao}" realizado!`);
       setResgatando(null);
-      carregar();
     } catch (err) {
       toast.error(extractErrorMessage(err));
       setResgatando(null);
@@ -84,7 +94,7 @@ export default function PontosPage() {
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {produtos.map((p) => {
-                const podeResgatar = saldo >= p.precoEmPontos && p.quantidade > 0;
+                const podeResgatar = saldo >= custo(p) && p.quantidade > 0;
                 return (
                   <ProdutoCard
                     key={p.id}
@@ -100,7 +110,7 @@ export default function PontosPage() {
                           ? 'Esgotado'
                           : podeResgatar
                             ? 'Resgatar'
-                            : `Faltam ${formatPontos(p.precoEmPontos - saldo)}`}
+                            : `Faltam ${formatPontos(custo(p) - saldo)}`}
                       </button>
                     }
                   />
@@ -167,7 +177,7 @@ export default function PontosPage() {
         title="Confirmar resgate"
         message={
           resgatando
-            ? `Resgatar "${resgatando.descricao}" por ${formatPontos(resgatando.precoEmPontos)}? Seu novo saldo será ${formatPontos(saldo - resgatando.precoEmPontos)}.`
+            ? `Resgatar "${resgatando.descricao}" por ${formatPontos(resgatando.precoEmPontos)}? Seu novo saldo será ${formatPontos(saldo - custo(resgatando))}.`
             : ''
         }
         confirmLabel="Resgatar"

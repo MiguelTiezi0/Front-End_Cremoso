@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { RowSkeleton } from '@/components/ui/Loaders';
-import { EmptyState, ErrorState, StatusPedidoBadge, STATUS_LABEL } from '@/components/ui/Misc';
+import { EmptyState, ErrorState, StatusPedidoBadge } from '@/components/ui/Misc';
+import { STATUS_LABEL } from '@/lib/statusPedido';
 import { pedidoService } from '@/api/pedidoService';
 import type { Pedido, StatusPedido } from '@/types';
 import { extractErrorMessage, formatBRL, formatData } from '@/lib/format';
@@ -25,17 +26,22 @@ export default function PedidosPage() {
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
 
-  const carregar = () => {
-    setLoading(true);
-    setError(null);
+  // Só faz setState nos callbacks da promise, então pode rodar direto no effect.
+  const buscar = useCallback(() => {
     pedidoService
       .list()
       .then(setPedidos)
       .catch((e) => setError(extractErrorMessage(e)))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(carregar, []);
+  useEffect(buscar, [buscar]);
+
+  const carregar = () => {
+    setLoading(true);
+    setError(null);
+    buscar();
+  };
 
   const filtrados = useMemo(
     () => (filtro === 'TODOS' ? pedidos : pedidos.filter((p) => p.status === filtro)),

@@ -1,5 +1,8 @@
 // Helpers de formatação (pt-BR).
 
+// Texto exibido no lugar de valores opcionais ausentes (ex.: pontos nulos).
+export const SEM_VALOR = '—';
+
 export const formatBRL = (value: number): string =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -11,8 +14,9 @@ export const formatDataHora = (iso: string): string =>
     new Date(iso),
   );
 
-export const formatPontos = (n: number): string =>
-  `${new Intl.NumberFormat('pt-BR').format(n)} pts`;
+// null (pontos opcionais no contrato) vira "—".
+export const formatPontos = (n: number | null): string =>
+  n === null ? SEM_VALOR : `${new Intl.NumberFormat('pt-BR').format(n)} pts`;
 
 // Extrai uma mensagem amigável de um erro de API (Axios ou mock).
 export function extractErrorMessage(err: unknown, fallback = 'Algo deu errado. Tente novamente.'): string {
@@ -25,6 +29,12 @@ export function extractErrorMessage(err: unknown, fallback = 'Algo deu errado. T
     if (anyErr.message) return anyErr.message;
   }
   return fallback;
+}
+
+// Status HTTP de um erro de API (Axios ou mock), se houver.
+export function statusHttp(err: unknown): number | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  return (err as { response?: { status?: number } }).response?.status;
 }
 
 // Máscara simples de CEP (00000-000).

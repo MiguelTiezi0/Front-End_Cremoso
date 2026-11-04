@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StatusPedido } from '@/types';
+import { STATUS_LABEL } from '@/lib/statusPedido';
 
 // Estado vazio genérico.
 export function EmptyState({
@@ -26,7 +27,10 @@ export function EmptyState({
 // Mensagem de erro amigável com opção de "tentar novamente".
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="rounded-2xl border border-strawberry-200 bg-strawberry-100/50 px-6 py-8 text-center">
+    <div
+      role="alert"
+      className="rounded-2xl border border-strawberry-200 bg-strawberry-100/50 px-6 py-8 text-center"
+    >
       <p className="text-sm font-semibold text-strawberry-700">{message}</p>
       {onRetry && (
         <button className="btn-ghost mt-4" onClick={onRetry}>
@@ -80,13 +84,6 @@ export function AtivoBadge({ ativo }: { ativo: boolean }) {
 }
 
 // Badge de status de pedido com cores por estado.
-const STATUS_LABEL: Record<StatusPedido, string> = {
-  RECEBIDO: 'Recebido',
-  EM_PREPARO: 'Em preparo',
-  SAIU_PARA_ENTREGA: 'Saiu para entrega',
-  ENTREGUE: 'Entregue',
-  CANCELADO: 'Cancelado',
-};
 
 const STATUS_STYLE: Record<StatusPedido, string> = {
   RECEBIDO: 'bg-blueberry-100 text-blueberry-600',
@@ -100,4 +97,3 @@ export function StatusPedidoBadge({ status }: { status: StatusPedido }) {
   return <span className={`badge ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>;
 }
 
-export { STATUS_LABEL };

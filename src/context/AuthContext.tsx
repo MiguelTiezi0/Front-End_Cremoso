@@ -10,6 +10,7 @@ import {
 import type { LoginPayload, RegisterPayload, User } from '@/types';
 import { authService } from '@/api/authService';
 import { tokenStorage } from '@/api/tokenStorage';
+import { statusHttp } from '@/lib/format';
 
 const USER_KEY = 'cremoso.user';
 
@@ -36,16 +37,50 @@ function loadStoredUser(): User | null {
   }
 }
 
+// Mesmo storage escolhido no login ("manter-me conectado").
+const userStore = (): Storage => (tokenStorage.isPersistent() ? localStorage : sessionStorage);
+
+function limparSessao() {
+  tokenStorage.clear();
+  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(USER_KEY);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [initializing, setInitializing] = useState(true);
+  // Sem token salvo não há o que validar: já começa pronto.
+  const [initializing, setInitializing] = useState(() => tokenStorage.get() !== null);
 
-  // Reidrata a sessão a partir do storage (token + usuário) no primeiro carregamento.
+  // Ao abrir o app com token salvo, valida a sessão em /auth/me e atualiza nome, role e
+  // saldo de pontos. Enquanto isso `initializing` segura as rotas no loader, para não
+  // piscar a tela errada (ex.: dashboard de admin para quem perdeu o papel).
   useEffect(() => {
-    const token = tokenStorage.get();
+    if (!tokenStorage.get()) return;
     const stored = loadStoredUser();
-    if (token && stored) setUser(stored);
-    setInitializing(false);
+    let active = true;
+    authService
+      .me(stored?.id ?? 0)
+      .then((atual) => {
+        if (!active) return;
+        userStore().setItem(USER_KEY, JSON.stringify(atual));
+        setUser(atual);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (statusHttp(err) === 401 || !stored) {
+          limparSessao(); // o ProtectedRoute leva para /login
+          setUser(null);
+        } else {
+          // Rede/servidor fora do ar: mantém a sessão salva em vez de deslogar.
+          setUser(stored);
+        }
+      })
+      .finally(() => {
+        if (active) setInitializing(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // O interceptor do Axios dispara este evento em respostas 401 (sessão expirada).
@@ -87,10 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    void authService.logout();
-    tokenStorage.clear();
-    localStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem(USER_KEY);
+    // Sessão é stateless (JWT): o POST /auth/logout é só cortesia, então uma falha
+    // de rede aqui não pode impedir o logout local.
+    authService.logout().catch(() => undefined);
+    limparSessao();
     setUser(null);
   }, []);
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   Gift,
+  IceCreamCone,
   LayoutDashboard,
   Menu,
   Package,
@@ -24,6 +25,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Início', icon: LayoutDashboard },
+  { to: '/catalogo', label: 'Catálogo', icon: IceCreamCone, clienteOnly: true },
   { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, clienteOnly: true },
   { to: '/pontos', label: 'Pontos', icon: Gift, clienteOnly: true },
   { to: '/admin/produtos', label: 'Produtos', icon: Package, adminOnly: true },
@@ -31,7 +33,7 @@ const NAV: NavItem[] = [
 ];
 
 export function AppLayout() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = NAV.filter((i) => (!i.adminOnly || isAdmin) && (!i.clienteOnly || !isAdmin));
 
@@ -58,7 +60,8 @@ export function AppLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            {!isAdmin && <NotificationBell />}
+            {/* Mesma condição do polling no NotificationProvider (role CLIENTE). */}
+            {user?.role === 'CLIENTE' && <NotificationBell />}
             <UserMenu />
           </div>
         </div>

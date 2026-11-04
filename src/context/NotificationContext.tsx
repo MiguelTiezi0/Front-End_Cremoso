@@ -9,13 +9,14 @@ import {
 } from 'react';
 import type { Notificacao } from '@/types';
 import { notificacaoService } from '@/api/notificacaoService';
+import { proximoIntervalo } from '@/lib/polling';
 import { useAuth } from './AuthContext';
 
 interface NotificationContextValue {
   notificacoes: Notificacao[];
   naoLidas: number;
   loading: boolean;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean>; // false se a busca falhou (nunca rejeita)
   markLida: (id: number) => Promise<void>;
   markTodasLidas: () => Promise<void>;
 }
@@ -23,43 +24,85 @@ interface NotificationContextValue {
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 // Intervalo de polling. Preparado para troca futura por WebSocket:
-// basta substituir este setInterval por uma assinatura de socket que chame refresh().
-const POLL_MS = 30_000;
+// basta substituir o ciclo de setTimeout por uma assinatura de socket que chame refresh().
+const POLL_MS = 30_000; // depois de um erro, espaça com proximoIntervalo (src/lib/polling.ts)
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const { user } = useAuth();
+  // Notificações só existem para CLIENTE — é para quem o sino aparece no AppLayout.
+  const userId = user?.role === 'CLIENTE' ? user.id : null;
+  const ativo = userId !== null;
+  // A lista guarda de quem é: ao trocar de usuário (ou deslogar) ela some sem precisar
+  // de setState no effect.
+  const [carregadas, setCarregadas] = useState<{ userId: number; lista: Notificacao[] } | null>(
+    null,
+  );
+  const notificacoes = useMemo(
+    () => (ativo && carregadas?.userId === userId ? carregadas.lista : []),
+    [ativo, carregadas, userId],
+  );
   const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!isAuthenticated) return;
+  const atualizarLista = useCallback(
+    (fn: (lista: Notificacao[]) => Notificacao[]) =>
+      setCarregadas((prev) => (prev ? { ...prev, lista: fn(prev.lista) } : prev)),
+    [],
+  );
+
+  // Nunca rejeita: devolve false em caso de erro (a lista atual é mantida).
+  const refresh = useCallback(async (): Promise<boolean> => {
+    if (userId === null) return true;
     setLoading(true);
     try {
-      setNotificacoes(await notificacaoService.list());
+      const lista = await notificacaoService.list();
+      setCarregadas({ userId, lista });
+      return true;
+    } catch {
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setNotificacoes([]);
-      return;
-    }
-    void refresh();
-    const timer = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(timer);
-  }, [isAuthenticated, refresh]);
+    if (!ativo) return;
+    let cancelado = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let atraso = POLL_MS;
+    const ciclo = async () => {
+      const ok = await refresh();
+      if (cancelado) return;
+      atraso = proximoIntervalo(ok, atraso, POLL_MS);
+      timer = setTimeout(() => void ciclo(), atraso);
+    };
+    void ciclo();
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [ativo, refresh]);
 
-  const markLida = useCallback(async (id: number) => {
-    setNotificacoes((prev) => prev.map((n) => (n.id === id ? { ...n, lida: true } : n)));
-    await notificacaoService.markLida(id);
-  }, []);
+  // Atualização otimista; se o servidor falhar, recarrega a lista para desfazer.
+  const markLida = useCallback(
+    async (id: number) => {
+      atualizarLista((lista) => lista.map((n) => (n.id === id ? { ...n, lida: true } : n)));
+      try {
+        await notificacaoService.markLida(id);
+      } catch {
+        await refresh();
+      }
+    },
+    [atualizarLista, refresh],
+  );
 
   const markTodasLidas = useCallback(async () => {
-    setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
-    await notificacaoService.markTodasLidas();
-  }, []);
+    atualizarLista((lista) => lista.map((n) => ({ ...n, lida: true })));
+    try {
+      await notificacaoService.markTodasLidas();
+    } catch {
+      await refresh();
+    }
+  }, [atualizarLista, refresh]);
 
   const value = useMemo<NotificationContextValue>(() => {
     const naoLidas = notificacoes.filter((n) => !n.lida).length;

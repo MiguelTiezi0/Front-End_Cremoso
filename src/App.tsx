@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute, PublicOnlyRoute } from './routes/ProtectedRoute';
 import { FullScreenLoader } from './components/ui/Loaders';
+import { ModoDemonstracao } from './components/ui/ModoDemonstracao';
+import { USE_MOCK } from './config/mock';
 
 // Code-splitting por página.
 const LoginPage = lazy(() => import('./features/auth/LoginPage'));
@@ -10,6 +12,7 @@ const CadastroPage = lazy(() => import('./features/auth/CadastroPage'));
 const PerfilPage = lazy(() => import('./features/auth/PerfilPage'));
 const EnderecosPage = lazy(() => import('./features/auth/EnderecosPage'));
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage'));
+const CatalogoPage = lazy(() => import('./features/catalogo/CatalogoPage'));
 const PontosPage = lazy(() => import('./features/pontos/PontosPage'));
 const PedidosPage = lazy(() => import('./features/pedidos/PedidosPage'));
 const PedidoDetalhePage = lazy(() => import('./features/pedidos/PedidoDetalhePage'));
@@ -21,6 +24,7 @@ const NotFoundPage = lazy(() => import('./features/NotFoundPage'));
 export default function App() {
   return (
     <Suspense fallback={<FullScreenLoader />}>
+      {USE_MOCK && <ModoDemonstracao />}
       <Routes>
         {/* Rotas públicas (redirecionam se já logado) */}
         <Route element={<PublicOnlyRoute />}>
@@ -39,6 +43,7 @@ export default function App() {
         {/* Rotas protegidas exclusivas de cliente (sem sentido para o painel de funcionário) */}
         <Route element={<ProtectedRoute clienteOnly />}>
           <Route element={<AppLayout />}>
+            <Route path="/catalogo" element={<CatalogoPage />} />
             <Route path="/enderecos" element={<EnderecosPage />} />
             <Route path="/pontos" element={<PontosPage />} />
             <Route path="/pedidos" element={<PedidosPage />} />

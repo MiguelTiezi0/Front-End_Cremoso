@@ -1,15 +1,16 @@
 import type { Pedido } from '@/types';
-import { api, USE_MOCK } from './client';
-import { mockApi } from './mock/mockApi';
+import { MOCK } from '@/config/mock';
+import { api } from './client';
+import { mock } from './mock/carregar';
 
 export const pedidoService = {
   async list(): Promise<Pedido[]> {
-    if (USE_MOCK) return mockApi.listPedidos();
+    if (MOCK.pedidos) return (await mock()).listPedidos();
     const { data } = await api.get<Pedido[]>('/pedidos');
     return data;
   },
   async get(id: number): Promise<Pedido> {
-    if (USE_MOCK) return mockApi.getPedido(id);
+    if (MOCK.pedidos) return (await mock()).getPedido(id);
     const { data } = await api.get<Pedido>(`/pedidos/${id}`);
     return data;
   },

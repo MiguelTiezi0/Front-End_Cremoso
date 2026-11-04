@@ -32,4 +32,4 @@ api.interceptors.response.use(
   },
 );
 
-export const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'true') !== 'false';
+// O mock por módulo fica em src/config/mock.ts.

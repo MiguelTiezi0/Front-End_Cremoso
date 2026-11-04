@@ -18,6 +18,11 @@ export const tokenStorage = {
     return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
   },
 
+  /** true se a sessão atual foi salva com "manter-me conectado" (localStorage). */
+  isPersistent(): boolean {
+    return localStorage.getItem(TOKEN_KEY) !== null;
+  },
+
   getRefresh(): string | null {
     return localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY);
   },

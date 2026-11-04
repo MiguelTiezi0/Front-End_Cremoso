@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Home, MapPin, Pencil, Plus, Star, Trash2 } from 'lucide-react';
@@ -42,17 +42,22 @@ export default function EnderecosPage() {
     formState: { errors, isSubmitting },
   } = useForm<EnderecoForm>({ resolver: zodResolver(enderecoSchema), defaultValues: emptyForm });
 
-  const carregar = () => {
-    setLoading(true);
-    setError(null);
+  // Só faz setState nos callbacks da promise, então pode rodar direto no effect.
+  const buscar = useCallback(() => {
     enderecoService
       .list()
       .then(setEnderecos)
       .catch((e) => setError(extractErrorMessage(e)))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(carregar, []);
+  useEffect(buscar, [buscar]);
+
+  const carregar = () => {
+    setLoading(true);
+    setError(null);
+    buscar();
+  };
 
   const abrirNovo = () => {
     setEditing(null);

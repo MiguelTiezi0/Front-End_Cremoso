@@ -102,11 +102,14 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <div className="rounded-2xl bg-cream-100 px-4 py-3 text-xs text-slate-500">
-          <p className="font-bold text-slate-600">Contas de teste (mock):</p>
-          <p>Cliente — cliente@cremoso.com / Senha@123</p>
-          <p>Admin — admin@cremoso.com / Admin@123</p>
-        </div>
+        {/* Só em desenvolvimento: são as contas do mock e do seed de dev do backend. */}
+        {import.meta.env.DEV && (
+          <div className="rounded-2xl bg-cream-100 px-4 py-3 text-xs text-slate-500">
+            <p className="font-bold text-slate-600">Contas de teste</p>
+            <p>Cliente — cliente@cremoso.com / Senha@123</p>
+            <p>Admin — admin@cremoso.com / Admin@123</p>
+          </div>
+        )}
       </form>
     </AuthLayout>
   );

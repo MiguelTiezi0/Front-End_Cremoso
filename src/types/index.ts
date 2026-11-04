@@ -21,9 +21,10 @@ export interface Produto {
   preco: number;
   ativo: boolean;
   categoria: Categoria;
-  imagemUrl: string;
-  precoEmPontos: number;
-  ganhoDePontos: number;
+  // Opcionais no contrato da API: podem vir null.
+  imagemUrl: string | null;
+  precoEmPontos: number | null;
+  ganhoDePontos: number | null;
   dataCadastro: string; // ISO — somente leitura (preenchido pelo back-end)
   dataAtualizacao: string; // ISO — somente leitura
 }
@@ -36,8 +37,8 @@ export interface ProdutoInput {
   ativo: boolean;
   categoriaId: number;
   imagemUrl: string;
-  precoEmPontos: number;
-  ganhoDePontos: number;
+  precoEmPontos: number | null;
+  ganhoDePontos: number | null;
 }
 
 export interface CategoriaInput {

@@ -169,7 +169,7 @@ export const seedPedidos: Pedido[] = [
       {
         produtoId: 1,
         descricao: 'Sorvete de Morango (500ml)',
-        imagemUrl: seedProdutos[0].imagemUrl,
+        imagemUrl: seedProdutos[0].imagemUrl ?? '',
         quantidade: 2,
         valorUnitario: 24.9,
         subtotal: 49.8,
@@ -191,7 +191,7 @@ export const seedPedidos: Pedido[] = [
       {
         produtoId: 3,
         descricao: 'Picolé de Limão',
-        imagemUrl: seedProdutos[2].imagemUrl,
+        imagemUrl: seedProdutos[2].imagemUrl ?? '',
         quantidade: 4,
         valorUnitario: 7.5,
         subtotal: 30.0,
@@ -199,7 +199,7 @@ export const seedPedidos: Pedido[] = [
       {
         produtoId: 2,
         descricao: 'Sorvete de Chocolate Belga (500ml)',
-        imagemUrl: seedProdutos[1].imagemUrl,
+        imagemUrl: seedProdutos[1].imagemUrl ?? '',
         quantidade: 1,
         valorUnitario: 29.9,
         subtotal: 29.9,
