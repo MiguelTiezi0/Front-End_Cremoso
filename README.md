@@ -88,16 +88,20 @@ Toda comunicação passa pelos **serviços** em `src/api/*Service.ts`. Cada fun�
 implementações: o **mock** (`src/api/mock/`) e a **chamada REST real** (Axios). Qual delas
 cada módulo usa é decidido em **um único arquivo**: [`src/config/mock.ts`](src/config/mock.ts).
 
-| Módulo | Flag | Backend | Comportamento |
+Três objetos nesse arquivo:
+- **`BACKEND`:** quais módulos já existem na API Python. É o único lugar a mudar quando a
+  API ganhar um módulo.
+- **`MOCK`:** se o módulo usa o mock. O mock é tudo ou nada e segue `USE_MOCK`.
+- **`DISPONIVEL`:** se o módulo aparece no app (menu, rotas e chamadas). Isso acontece
+  quando ele tem backend **ou** o mock está ligado.
+
+| Módulo | Backend | Com a API real (`VITE_USE_MOCK` ≠ `true`, e sempre em produção) | Modo demonstração (`VITE_USE_MOCK=true`, só dev) |
 | --- | --- | --- | --- |
-| Auth (login, cadastro, `/auth/me`, logout) | `MOCK.auth` | ✅ existe | segue `USE_MOCK` |
-| Perfil (`PUT /clientes/me`) | `MOCK.perfil` | ✅ existe | segue `USE_MOCK` |
-| Categorias | `MOCK.categorias` | ✅ existe | segue `USE_MOCK` |
-| Produtos | `MOCK.produtos` | ✅ existe | segue `USE_MOCK` |
-| Pedidos | `MOCK.pedidos` | ❌ ainda não | mock em dev; desligado em produção |
-| Endereços | `MOCK.enderecos` | ❌ ainda não | mock em dev; desligado em produção |
-| Pontos | `MOCK.pontos` | ❌ ainda não | mock em dev; desligado em produção |
-| Notificações | `MOCK.notificacoes` | ❌ ainda não | mock em dev; desligado em produção |
+| Auth, Perfil, Categorias, Produtos | ✅ | API real | mock |
+| Pedidos | ❌ | **escondido:** fora do menu, do menu do usuário, do dashboard ("Último pedido") e do perfil (histórico); a rota cai no 404 | mock |
+| Endereços | ❌ | **escondido:** fora do menu do usuário; a rota cai no 404 | mock |
+| Notificações | ❌ | **escondido:** sem sino e sem polling; a rota cai no 404 | mock |
+| Pontos | ❌ | **visível:** saldo real de `/auth/me` (`saldoPontos`); extrato e resgate aparecem como "Em breve", sem chamar mock | mock |
 
 **`USE_MOCK` é seguro por padrão** (`src/config/mockFlag.ts`):
 
@@ -106,21 +110,16 @@ cada módulo usa é decidido em **um único arquivo**: [`src/config/mock.ts`](sr
 | ausente, `false`, `1`, `TRUE`… | API real | API real |
 | exatamente `true` | mock + aviso "Modo demonstração" | **API real** (o mock nunca liga) |
 
-- Em produção nenhum mock liga, nem o dos módulos sem backend: essas telas mostram o estado
-  de erro em vez de dados falsos.
-- **Quando a API ganhar um módulo**, troque o `SEM_BACKEND` dele por `USE_MOCK` em
-  `src/config/mock.ts`. Nenhum outro arquivo precisa mudar.
+- Em produção as flags viram constantes no build: o código do mock (e as contas de exemplo)
+  nem entra no bundle.
+- **Quando a API ganhar um módulo**, troque `false` por `true` no `BACKEND` de
+  `src/config/mock.ts`. O módulo volta ao menu e às rotas e passa a chamar a API.
 
 ```env
 # .env (copie de .env.example)
 VITE_API_BASE_URL=http://localhost:8080/api
 VITE_USE_MOCK=false   # ou true para rodar sem back-end (só em dev)
 ```
-
-> **Modo misto (dev, API real + módulos ainda sem backend):** pedidos e notificações mostram
-> os dados de exemplo do mock. O mock de **pontos** usa o usuário logado (saldo do
-> `AuthContext`, extrato e resgate por usuário), então o resgate funciona com contas reais,
-> respeitando o saldo que a API informa.
 
 Rotas que o front espera quando cada módulo ganhar backend:
 
@@ -137,6 +136,24 @@ sessão em `GET /auth/me` e atualiza nome, role e saldo de pontos (com loader at
 
 **Remover o mock:** quando todos os módulos tiverem backend, a pasta `src/api/mock/`,
 `src/config/mock.ts` e os blocos `if (MOCK.x)` dos serviços podem ser removidos.
+
+## ▲ Deploy na Vercel
+
+O `vercel.json` já define `npm run build` e a pasta `dist`. Em *Settings → Environment
+Variables*:
+
+| Variável | Production | Preview | Observação |
+| --- | --- | --- | --- |
+| `VITE_API_BASE_URL` | `https://<seu-servico>.onrender.com/api` | a mesma (ou a URL de um backend de homologação) | **Obrigatória.** Sem ela o build usa `http://localhost:8080/api` e o site publicado não acha a API |
+| `VITE_USE_MOCK` | não definir | não definir | Em build de produção o mock nunca liga, mesmo com `true` (as prévias também são builds de produção) |
+
+No backend (Render), libere as origens do front:
+- `CORS_ORIGINS=https://<seu-app>.vercel.app` (produção, sem `/` no fim);
+- `CORS_ORIGIN_REGEX=https://<seu-app>-[a-z0-9-]+\.vercel\.app` para as URLs de prévia,
+  que mudam a cada deploy.
+
+As variáveis `VITE_*` entram no bundle **no momento do build**. Depois de mudar alguma, faça
+um novo deploy (*Redeploy*) para ela valer.
 
 ### Tempo real (WebSocket)
 O acompanhamento de pedidos (`PedidoDetalhePage`) e a central de notificações
