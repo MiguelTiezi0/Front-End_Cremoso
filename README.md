@@ -2,7 +2,7 @@
 
 Front-end do sistema de delivery de sorvetes **Cremoso**, construído em **React + TypeScript + Vite**, com **Tailwind CSS**, **React Router**, **React Hook Form + Zod**, **Axios** e **Lucide**.
 
-O app funciona **100% com dados mockados** (mock em memória persistido em `localStorage`), sem precisar do back-end. Quando a API Spring Boot estiver pronta, basta trocar uma variável de ambiente e os endpoints.
+Por padrão o app usa a **API Python** (`VITE_API_BASE_URL`) nos módulos que ela já tem (auth, perfil, categorias e produtos). Para rodar **sem back-end**, use `VITE_USE_MOCK=true` em dev: tudo passa para o mock em memória (persistido em `localStorage`) e a tela mostra o aviso "Modo demonstração" — ver [Mock por módulo](#-mock-por-módulo).
 
 ---
 
@@ -22,9 +22,14 @@ Outros scripts:
 ```bash
 npm run build     # type-check + build de produção (gera /dist)
 npm run preview   # serve o build de produção localmente
+npm run lint      # ESLint (config flat do template React + TS do Vite)
+npx playwright test -c e2e   # testes ponta a ponta contra a API real (ver e2e/README.md)
 ```
 
-### Contas de teste (mock)
+### Contas de teste
+
+São as mesmas no mock e no seed de dev do backend (`APP_ENV=dev`). A tela de login só
+mostra este bloco em modo dev (`npm run dev`).
 
 | Perfil  | E-mail               | Senha       |
 | ------- | -------------------- | ----------- |
@@ -50,7 +55,7 @@ npm run preview   # serve o build de produção localmente
 - **Dashboard** — saudação, saldo de pontos, status do último pedido, atalhos e destaques.
 - **Pontos (fidelidade)** — saldo, extrato (ganhos/resgates) e resgate de produtos por pontos.
 - **Pedidos** — listagem com filtro por status + detalhe com linha do tempo de acompanhamento (polling a cada 15s, pronto para WebSocket).
-- **Notificações** — central com sino/contador no header, marcar como lida / todas como lidas (polling a cada 30s).
+- **Notificações** — central com sino/contador no header, marcar como lida / todas como lidas (polling a cada 30s só para clientes; depois de um erro espaça para 2–10 min).
 
 ### Painel Administrativo (CRUD)
 - **Produtos** — tabela/grid com busca por descrição, filtro por categoria e status; formulário com todos os campos da entidade; toggle ativar/inativar; `dataCadastro`/`dataAtualizacao` somente leitura.
@@ -77,42 +82,61 @@ src/
 
 ---
 
-## 🔌 Onde plugar a API real
+## 🔌 Mock por módulo
 
 Toda comunicação passa pelos **serviços** em `src/api/*Service.ts`. Cada função tem duas
-implementações: o **mock** e a **chamada REST real** (via Axios). O switch é a flag `USE_MOCK`.
+implementações: o **mock** (`src/api/mock/`) e a **chamada REST real** (Axios). Qual delas
+cada módulo usa é decidido em **um único arquivo**: [`src/config/mock.ts`](src/config/mock.ts).
 
-1. **Configurar variáveis de ambiente** — copie `.env.example` para `.env` e ajuste:
+| Módulo | Flag | Backend | Comportamento |
+| --- | --- | --- | --- |
+| Auth (login, cadastro, `/auth/me`, logout) | `MOCK.auth` | ✅ existe | segue `USE_MOCK` |
+| Perfil (`PUT /clientes/me`) | `MOCK.perfil` | ✅ existe | segue `USE_MOCK` |
+| Categorias | `MOCK.categorias` | ✅ existe | segue `USE_MOCK` |
+| Produtos | `MOCK.produtos` | ✅ existe | segue `USE_MOCK` |
+| Pedidos | `MOCK.pedidos` | ❌ ainda não | mock em dev; desligado em produção |
+| Endereços | `MOCK.enderecos` | ❌ ainda não | mock em dev; desligado em produção |
+| Pontos | `MOCK.pontos` | ❌ ainda não | mock em dev; desligado em produção |
+| Notificações | `MOCK.notificacoes` | ❌ ainda não | mock em dev; desligado em produção |
 
-   ```env
-   VITE_API_BASE_URL=http://localhost:8080/api
-   VITE_USE_MOCK=false
-   ```
+**`USE_MOCK` é seguro por padrão** (`src/config/mockFlag.ts`):
 
-   Com `VITE_USE_MOCK=false`, os serviços passam a usar o Axios (`src/api/client.ts`)
-   em vez do mock — sem mais nenhuma alteração de código necessária.
+| `VITE_USE_MOCK` | `npm run dev` | build de produção |
+| --- | --- | --- |
+| ausente, `false`, `1`, `TRUE`… | API real | API real |
+| exatamente `true` | mock + aviso "Modo demonstração" | **API real** (o mock nunca liga) |
 
-2. **Ajustar os endpoints** — confira/edite as rotas em cada `*Service.ts` para casar com
-   o contrato do back-end. Exemplos usados hoje:
+- Em produção nenhum mock liga, nem o dos módulos sem backend: essas telas mostram o estado
+  de erro em vez de dados falsos.
+- **Quando a API ganhar um módulo**, troque o `SEM_BACKEND` dele por `USE_MOCK` em
+  `src/config/mock.ts`. Nenhum outro arquivo precisa mudar.
 
-   | Recurso      | Método/rota (exemplo)                  |
-   | ------------ | -------------------------------------- |
-   | Login        | `POST /auth/login`                     |
-   | Cadastro     | `POST /auth/register`                  |
-   | Perfil       | `PUT /clientes/me`                     |
-   | Endereços    | `GET/POST/PUT/DELETE /clientes/me/enderecos` |
-   | Produtos     | `GET/POST/PUT/DELETE /produtos` + `PATCH /produtos/{id}/ativo` |
-   | Categorias   | `GET/POST/PUT/DELETE /categorias`      |
-   | Pedidos      | `GET /pedidos`, `GET /pedidos/{id}`    |
-   | Pontos       | `GET /pontos/saldo`, `GET /pontos/extrato`, `POST /pontos/resgates` |
-   | Notificações | `GET /notificacoes`, `PATCH /notificacoes/{id}/lida` |
+```env
+# .env (copie de .env.example)
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_USE_MOCK=false   # ou true para rodar sem back-end (só em dev)
+```
 
-3. **Token JWT** — o cliente Axios já injeta `Authorization: Bearer <token>`
-   (`src/api/client.ts`) e trata `401` limpando a sessão. Se o back-end usar **cookie httpOnly**,
-   habilite `withCredentials: true` no client e remova o uso do `tokenStorage`.
+> **Modo misto (dev, API real + módulos ainda sem backend):** pedidos e notificações mostram
+> os dados de exemplo do mock. O mock de **pontos** usa o usuário logado (saldo do
+> `AuthContext`, extrato e resgate por usuário), então o resgate funciona com contas reais,
+> respeitando o saldo que a API informa.
 
-4. **Remover o mock** — quando tudo estiver integrado, a pasta `src/api/mock/` e os blocos
-   `if (USE_MOCK)` dos serviços podem ser removidos.
+Rotas que o front espera quando cada módulo ganhar backend:
+
+| Recurso      | Método/rota                            |
+| ------------ | -------------------------------------- |
+| Endereços    | `GET/POST/PUT/DELETE /clientes/me/enderecos`, `PATCH /clientes/me/enderecos/{id}/padrao` |
+| Pedidos      | `GET /pedidos`, `GET /pedidos/{id}`    |
+| Pontos       | `GET /pontos/saldo`, `GET /pontos/extrato`, `POST /pontos/resgates` |
+| Notificações | `GET /notificacoes`, `PATCH /notificacoes/{id}/lida`, `PATCH /notificacoes/lidas` |
+
+**Sessão / JWT:** o cliente Axios injeta `Authorization: Bearer <token>` (`src/api/client.ts`)
+e trata `401` limpando a sessão. Ao abrir o app com token salvo, o `AuthContext` valida a
+sessão em `GET /auth/me` e atualiza nome, role e saldo de pontos (com loader até terminar).
+
+**Remover o mock:** quando todos os módulos tiverem backend, a pasta `src/api/mock/`,
+`src/config/mock.ts` e os blocos `if (MOCK.x)` dos serviços podem ser removidos.
 
 ### Tempo real (WebSocket)
 O acompanhamento de pedidos (`PedidoDetalhePage`) e a central de notificações
