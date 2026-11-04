@@ -4,7 +4,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute, PublicOnlyRoute } from './routes/ProtectedRoute';
 import { FullScreenLoader } from './components/ui/Loaders';
 import { ModoDemonstracao } from './components/ui/ModoDemonstracao';
-import { USE_MOCK } from './config/mock';
+import { DISPONIVEL, USE_MOCK } from './config/mock';
 
 // Code-splitting por página.
 const LoginPage = lazy(() => import('./features/auth/LoginPage'));
@@ -44,11 +44,15 @@ export default function App() {
         <Route element={<ProtectedRoute clienteOnly />}>
           <Route element={<AppLayout />}>
             <Route path="/catalogo" element={<CatalogoPage />} />
-            <Route path="/enderecos" element={<EnderecosPage />} />
             <Route path="/pontos" element={<PontosPage />} />
-            <Route path="/pedidos" element={<PedidosPage />} />
-            <Route path="/pedidos/:id" element={<PedidoDetalhePage />} />
-            <Route path="/notificacoes" element={<NotificacoesPage />} />
+            {/* Módulos sem backend só existem com o mock ligado (src/config/mock.ts);
+                fora disso a URL cai no 404. */}
+            {DISPONIVEL.enderecos && <Route path="/enderecos" element={<EnderecosPage />} />}
+            {DISPONIVEL.pedidos && <Route path="/pedidos" element={<PedidosPage />} />}
+            {DISPONIVEL.pedidos && <Route path="/pedidos/:id" element={<PedidoDetalhePage />} />}
+            {DISPONIVEL.notificacoes && (
+              <Route path="/notificacoes" element={<NotificacoesPage />} />
+            )}
           </Route>
         </Route>
 

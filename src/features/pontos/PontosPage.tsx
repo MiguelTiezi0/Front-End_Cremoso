@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Gift, Sparkles } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Clock, Gift, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ProdutoCard } from '@/components/ProdutoCard';
 import { CardSkeleton, RowSkeleton } from '@/components/ui/Loaders';
 import { EmptyState, ErrorState } from '@/components/ui/Misc';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { pontosService } from '@/api/pontosService';
@@ -15,7 +16,59 @@ import { extractErrorMessage, formatDataHora, formatPontos } from '@/lib/format'
 // Só entram no resgate produtos com preço em pontos (o campo é opcional no contrato).
 const custo = (p: Produto): number => p.precoEmPontos ?? 0;
 
+// A tela sempre aparece com o saldo real (saldoPontos de /auth/me). Extrato e resgate só
+// existem com o módulo de pontos disponível (src/config/mock.ts); sem isso aparecem como
+// "Em breve", sem chamar o mock.
 export default function PontosPage() {
+  const { user } = useAuth();
+  const saldo = user?.saldoPontos ?? 0;
+
+  return (
+    <>
+      <PageHeader title="Pontos & Fidelidade" subtitle="Acumule pontos e troque por sorvetes." />
+
+      {/* Saldo */}
+      <section className="mb-8 flex items-center gap-4 overflow-hidden rounded-2xl bg-blueberry-500 p-6 text-white">
+        <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">
+          <Gift className="h-7 w-7" />
+        </span>
+        <div>
+          <p className="text-sm text-blueberry-100">Seu saldo atual</p>
+          <p className="text-3xl font-bold">{formatPontos(saldo)}</p>
+        </div>
+      </section>
+
+      {DISPONIVEL.pontos ? <ResgateEExtrato /> : <EmBreve />}
+    </>
+  );
+}
+
+function EmBreve() {
+  return (
+    <div className="grid gap-8 lg:grid-cols-5">
+      <section className="lg:col-span-3">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800">
+          <Sparkles className="h-5 w-5 text-blueberry-600" /> Resgatar com pontos
+        </h2>
+        <EmptyState
+          icon={<Clock className="h-8 w-8" />}
+          title="Em breve"
+          description="Em breve você poderá trocar seus pontos por sorvetes."
+        />
+      </section>
+      <section className="lg:col-span-2">
+        <h2 className="mb-4 text-lg font-bold text-slate-800">Extrato de pontos</h2>
+        <EmptyState
+          icon={<Clock className="h-8 w-8" />}
+          title="Em breve"
+          description="O histórico de pontos ganhos e resgatados vai aparecer aqui."
+        />
+      </section>
+    </div>
+  );
+}
+
+function ResgateEExtrato() {
   const { user, updateUser } = useAuth();
   const toast = useToast();
   const [movimentos, setMovimentos] = useState<MovimentoPontos[]>([]);
@@ -63,19 +116,6 @@ export default function PontosPage() {
 
   return (
     <>
-      <PageHeader title="Pontos & Fidelidade" subtitle="Acumule pontos e troque por sorvetes." />
-
-      {/* Saldo */}
-      <section className="mb-8 flex items-center gap-4 overflow-hidden rounded-2xl bg-blueberry-500 p-6 text-white">
-        <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">
-          <Gift className="h-7 w-7" />
-        </span>
-        <div>
-          <p className="text-sm text-blueberry-100">Seu saldo atual</p>
-          <p className="text-3xl font-bold">{formatPontos(saldo)}</p>
-        </div>
-      </section>
-
       <div className="grid gap-8 lg:grid-cols-5">
         {/* Resgate */}
         <section className="lg:col-span-3">

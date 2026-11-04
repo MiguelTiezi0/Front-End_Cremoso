@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Notificacao } from '@/types';
 import { notificacaoService } from '@/api/notificacaoService';
+import { DISPONIVEL } from '@/config/mock';
 import { proximoIntervalo } from '@/lib/polling';
 import { useAuth } from './AuthContext';
 
@@ -29,8 +30,9 @@ const POLL_MS = 30_000; // depois de um erro, espaça com proximoIntervalo (src/
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  // Notificações só existem para CLIENTE — é para quem o sino aparece no AppLayout.
-  const userId = user?.role === 'CLIENTE' ? user.id : null;
+  // Notificações só existem para CLIENTE e só quando o módulo está disponível
+  // (src/config/mock.ts) — a mesma condição do sino no AppLayout.
+  const userId = user?.role === 'CLIENTE' && DISPONIVEL.notificacoes ? user.id : null;
   const ativo = userId !== null;
   // A lista guarda de quem é: ao trocar de usuário (ou deslogar) ela some sem precisar
   // de setState no effect.

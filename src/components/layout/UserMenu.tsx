@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, MapPin, ShoppingBag, User as UserIcon } from 'lucide-react';
+import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
 
 export function UserMenu() {
@@ -61,20 +62,24 @@ export function UserMenu() {
             </MenuLink>
             {!isAdmin && (
               <>
-                <MenuLink
-                  to="/enderecos"
-                  icon={<MapPin className="h-4 w-4" />}
-                  onClick={() => setOpen(false)}
-                >
-                  Endereços
-                </MenuLink>
-                <MenuLink
-                  to="/pedidos"
-                  icon={<ShoppingBag className="h-4 w-4" />}
-                  onClick={() => setOpen(false)}
-                >
-                  Meus pedidos
-                </MenuLink>
+                {DISPONIVEL.enderecos && (
+                  <MenuLink
+                    to="/enderecos"
+                    icon={<MapPin className="h-4 w-4" />}
+                    onClick={() => setOpen(false)}
+                  >
+                    Endereços
+                  </MenuLink>
+                )}
+                {DISPONIVEL.pedidos && (
+                  <MenuLink
+                    to="/pedidos"
+                    icon={<ShoppingBag className="h-4 w-4" />}
+                    onClick={() => setOpen(false)}
+                  >
+                    Meus pedidos
+                  </MenuLink>
+                )}
               </>
             )}
           </nav>

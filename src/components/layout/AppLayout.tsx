@@ -10,6 +10,7 @@ import {
   Tags,
   X,
 } from 'lucide-react';
+import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
@@ -21,12 +22,13 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
   clienteOnly?: boolean;
+  disponivel?: boolean; // false = módulo sem backend (src/config/mock.ts): fica fora do menu
 }
 
 const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Início', icon: LayoutDashboard },
   { to: '/catalogo', label: 'Catálogo', icon: IceCreamCone, clienteOnly: true },
-  { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, clienteOnly: true },
+  { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, clienteOnly: true, disponivel: DISPONIVEL.pedidos },
   { to: '/pontos', label: 'Pontos', icon: Gift, clienteOnly: true },
   { to: '/admin/produtos', label: 'Produtos', icon: Package, adminOnly: true },
   { to: '/admin/categorias', label: 'Categorias', icon: Tags, adminOnly: true },
@@ -35,7 +37,9 @@ const NAV: NavItem[] = [
 export function AppLayout() {
   const { user, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const items = NAV.filter((i) => (!i.adminOnly || isAdmin) && (!i.clienteOnly || !isAdmin));
+  const items = NAV.filter(
+    (i) => i.disponivel !== false && (!i.adminOnly || isAdmin) && (!i.clienteOnly || !isAdmin),
+  );
 
   return (
     <div className="min-h-screen bg-cream-50">
@@ -60,8 +64,8 @@ export function AppLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            {/* Mesma condição do polling no NotificationProvider (role CLIENTE). */}
-            {user?.role === 'CLIENTE' && <NotificationBell />}
+            {/* Mesma condição do polling no NotificationProvider. */}
+            {user?.role === 'CLIENTE' && DISPONIVEL.notificacoes && <NotificationBell />}
             <UserMenu />
           </div>
         </div>

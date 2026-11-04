@@ -19,6 +19,12 @@ function jwtHS256(payload: Record<string, unknown>, segredo: string) {
   return `${corpo}.${createHmac('sha256', segredo).update(corpo).digest('base64url')}`;
 }
 
+// Módulos do mock em si (dados, seed, mockApi). O `carregar.ts` fica de fora: é o import()
+// de duas linhas que os services importam; em dev ele sempre é baixado (o Vite não remove
+// ramos mortos no dev server) e no build de produção some junto com o mock.
+const ehModuloDoMock = (url: string) =>
+  url.includes('/src/api/mock/') && !url.includes('/src/api/mock/carregar.ts');
+
 test.describe('Cliente', () => {
   test('dados do usuário e saldo de pontos aparecem após o login', async ({ page }) => {
     await loginUI(page, CLIENTE.email, CLIENTE.senha);
@@ -182,40 +188,75 @@ test.describe('Cliente', () => {
     await expect(card).not.toContainText(/null|NaN|undefined/);
   });
 
-  test('modo misto: resgate de pontos (mock) funciona com usuário e produto da API real', async ({
+  test('sem backend: Pedidos, Endereços e Notificações ficam fora do menu e das rotas', async ({
+    page,
+  }) => {
+    // "Nem mock nem tela de erro": o código do mock não pode nem ser carregado.
+    const carregouMock: string[] = [];
+    page.on('request', (r) => ehModuloDoMock(r.url()) && carregouMock.push(r.url()));
+
+    await loginUI(page, CLIENTE.email, CLIENTE.senha);
+    await expect(page.getByText('Destaques de hoje')).toBeVisible();
+
+    // Menu principal, sino e menu do usuário
+    const nav = page.getByRole('navigation').first();
+    await expect(nav.getByRole('link', { name: 'Catálogo' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Pontos' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Pedidos' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Notificações/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Menu do usuário' }).click();
+    await expect(page.getByRole('link', { name: 'Meu perfil' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Endereços' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Meus pedidos' })).toHaveCount(0);
+
+    // Dashboard sem o card de último pedido; perfil sem histórico
+    await expect(page.getByText(/Último pedido/)).toHaveCount(0);
+    await page.goto('/perfil');
+    await expect(page.getByRole('heading', { name: 'Meu perfil' })).toBeVisible();
+    await expect(page.getByText('Histórico de pedidos')).toHaveCount(0);
+
+    // Rotas diretas caem no 404
+    for (const rota of ['/pedidos', '/pedidos/1001', '/enderecos', '/notificacoes']) {
+      await page.goto(rota);
+      await expect(page.getByText('Ops! Essa página derreteu.'), rota).toBeVisible();
+    }
+
+    await page.waitForLoadState('networkidle');
+    expect(carregouMock, 'módulos do mock carregados').toEqual([]);
+  });
+
+  test('sem backend de pontos: saldo real de /auth/me e extrato/resgate "Em breve"', async ({
     page,
     request,
-    obs,
   }) => {
-    // Produto real com preço em pontos.
-    const admin = await apiToken(request, ADMIN.email, ADMIN.senha);
-    const categoria = await apiCriarCategoria(request, admin, `Resgate ${RUN}`);
-    const produto = await apiCriarProduto(request, admin, categoria.id, `Resgatavel ${RUN}`);
+    const carregouMock: string[] = [];
+    page.on('request', (r) => ehModuloDoMock(r.url()) && carregouMock.push(r.url()));
+    const chamouPontos: string[] = [];
+    page.on('request', (r) => r.url().startsWith(`${API_URL}/pontos`) && chamouPontos.push(r.url()));
 
-    // Conta real nova. A API ainda não tem pontos (todo cliente tem 0), então simulamos só o
-    // saldo que viria de /auth/me; o resto (login, produtos) é a API real.
+    // A API ainda não credita pontos (todo cliente tem 0): simulamos só o saldoPontos de
+    // /auth/me para provar que a tela mostra o valor que vem da API.
     const email = `pontos${RUN}@teste.com`;
     await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Pontos Misto', email, telefone: '11933334444', senha: 'Senha123' },
+      data: { nome: 'Pontos Real', email, telefone: '11933334444', senha: 'Senha123' },
     });
     await page.route(`${API_URL}/auth/me`, async (route) => {
       const res = await route.fetch();
-      route.fulfill({ response: res, json: { ...(await res.json()), saldoPontos: 500 } });
+      await route.fulfill({ response: res, json: { ...(await res.json()), saldoPontos: 500 } });
     });
 
     await loginUI(page, email, 'Senha123');
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/pontos');
 
-    const card = page.locator('.card').filter({ has: page.getByRole('heading', { name: produto.descricao }) });
-    await card.getByRole('button', { name: 'Resgatar' }).click();
-    await page.getByRole('dialog', { name: 'Confirmar resgate' }).getByRole('button', { name: 'Resgatar' }).click();
+    await expect(page.getByText('Seu saldo atual')).toBeVisible();
+    await expect(page.getByText('500 pts', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Em breve' })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Resgatar' })).toHaveCount(0);
 
-    await expect(toast(page, `Resgate de "${produto.descricao}" realizado!`)).toBeVisible();
-    await expect(page.getByText('Usuário não encontrado.')).toHaveCount(0);
-    await expect(page.getByText(`Resgate: ${produto.descricao}`)).toBeVisible(); // extrato do usuário
-    await expect(page.getByText('310 pts', { exact: true }).first()).toBeVisible(); // 500 - 190
-    expect(obs.pageErrors).toEqual([]);
+    await page.waitForLoadState('networkidle');
+    expect(carregouMock, 'módulos do mock carregados').toEqual([]);
+    expect(chamouPontos, 'chamadas a /api/pontos').toEqual([]);
   });
 
   test('navegar como cliente não gera erros de API nem exceções JS', async ({ page, obs }) => {

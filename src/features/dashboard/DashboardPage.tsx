@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, StatusPedidoBadge } from '@/components/ui/Misc'
 import { useAuth } from '@/context/AuthContext';
 import { categoriaService, produtoService } from '@/api/catalogoService';
 import { pedidoService } from '@/api/pedidoService';
+import { DISPONIVEL } from '@/config/mock';
 import type { Pedido, Produto } from '@/types';
 import { extractErrorMessage, formatBRL, formatData, formatPontos } from '@/lib/format';
 
@@ -52,6 +53,7 @@ function ClienteDashboard() {
   };
 
   useEffect(() => {
+    if (!DISPONIVEL.pedidos) return; // módulo sem backend: o card não aparece
     let active = true;
     pedidoService
       .list()

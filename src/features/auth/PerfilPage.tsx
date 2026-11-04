@@ -13,15 +13,18 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { authService } from '@/api/authService';
 import { pedidoService } from '@/api/pedidoService';
+import { DISPONIVEL } from '@/config/mock';
 import type { Pedido } from '@/types';
 import { extractErrorMessage, formatBRL, formatData, maskTelefone } from '@/lib/format';
 
 export default function PerfilPage() {
   const { user, isAdmin, updateUser } = useAuth();
+  // Histórico de pedidos: só para cliente e só com o módulo de pedidos disponível.
+  const comHistorico = !isAdmin && DISPONIVEL.pedidos;
   const toast = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   // Admin não tem histórico de pedidos: nem chega a carregar.
-  const [loadingPedidos, setLoadingPedidos] = useState(!isAdmin);
+  const [loadingPedidos, setLoadingPedidos] = useState(comHistorico);
   const [erroPedidos, setErroPedidos] = useState<string | null>(null);
 
   const {
@@ -45,7 +48,7 @@ export default function PerfilPage() {
   }, [user, reset]);
 
   useEffect(() => {
-    if (isAdmin) return;
+    if (!comHistorico) return;
     let active = true;
     pedidoService
       .list()
@@ -57,7 +60,7 @@ export default function PerfilPage() {
     return () => {
       active = false;
     };
-  }, [isAdmin]);
+  }, [comHistorico]);
 
   const onSubmit = async (data: PerfilForm) => {
     if (!user) return;
@@ -80,12 +83,12 @@ export default function PerfilPage() {
     <>
       <PageHeader
         title="Meu perfil"
-        subtitle={isAdmin ? 'Gerencie seus dados de acesso.' : 'Gerencie seus dados e veja seus pedidos.'}
+        subtitle={comHistorico ? 'Gerencie seus dados e veja seus pedidos.' : 'Gerencie seus dados de acesso.'}
       />
 
-      <div className={`grid gap-6 ${isAdmin ? '' : 'lg:grid-cols-5'}`}>
+      <div className={`grid gap-6 ${comHistorico ? 'lg:grid-cols-5' : ''}`}>
         {/* Dados pessoais */}
-        <section className={`card ${isAdmin ? 'mx-auto w-full max-w-2xl' : 'lg:col-span-3'}`}>
+        <section className={`card ${comHistorico ? 'lg:col-span-3' : 'mx-auto w-full max-w-2xl'}`}>
           <h2 className="mb-4 text-lg font-bold text-slate-800">Dados pessoais</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <TextInput label="Nome completo" error={errors.nome?.message} {...register('nome')} />
@@ -145,7 +148,7 @@ export default function PerfilPage() {
         </section>
 
         {/* Histórico de pedidos (somente cliente) */}
-        {!isAdmin && (
+        {comHistorico && (
           <section className="card lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800">Histórico de pedidos</h2>

@@ -1,33 +1,48 @@
 import { mockLigado } from './mockFlag';
 
-// Mock por módulo: true = usa o mock em memória (src/api/mock), false = usa a API real.
+// Fonte única de verdade sobre os módulos do app: quais existem na API, quais usam o mock
+// e quais aparecem para o usuário. Quando a API ganhar um módulo, mude só `BACKEND` aqui.
 //
-// - Módulos que JÁ EXISTEM no backend seguem USE_MOCK: só ligam com VITE_USE_MOCK=true
-//   em dev. Sem a variável (ou em qualquer outro valor) usam a API real.
-// - Módulos que AINDA NÃO EXISTEM no backend usam o mock em dev, mesmo com USE_MOCK
-//   desligado. Quando a API ganhar o módulo, troque `SEM_BACKEND` por `USE_MOCK` aqui —
-//   é o único lugar a mudar.
-// - Em build de produção nenhum mock liga: essas telas mostram o estado de erro até o
-//   backend existir, em vez de dados falsos.
+// Os objetos são literais de propósito: no build de produção as flags viram constantes e o
+// bundler remove os ramos mortos (ex.: o código do mock — ver src/api/mock/carregar.ts).
 
-// `!import.meta.env.PROD &&` vem primeiro de propósito: no build vira `false` literal, o
-// bundler remove os ramos de mock e o código do mock (com as contas de exemplo) fica
-// fora do bundle de produção — ver src/api/mock/carregar.ts.
+// Mock em memória: só com VITE_USE_MOCK exatamente "true" e só em dev. O `!PROD &&` vem
+// primeiro para virar `false` literal no build.
 export const USE_MOCK = !import.meta.env.PROD && mockLigado(import.meta.env);
-const SEM_BACKEND = !import.meta.env.PROD;
 
+// Módulos que já existem na API Python.
+export const BACKEND = {
+  auth: true, // login, cadastro, /auth/me, logout
+  perfil: true, // PUT /clientes/me
+  categorias: true,
+  produtos: true,
+  pedidos: false,
+  enderecos: false,
+  pontos: false, // o saldo já vem de /auth/me (saldoPontos); extrato e resgate, não
+  notificacoes: false,
+} as const;
+
+// Usa o mock em vez da API real. É tudo ou nada: com o modo demonstração ligado, todos os
+// módulos usam o mock (inclusive os que já têm backend), e o app roda sem back-end.
 export const MOCK = {
-  // Já existem no backend
-  auth: USE_MOCK, // login, cadastro, /auth/me, logout
-  perfil: USE_MOCK, // PUT /clientes/me
+  auth: USE_MOCK,
+  perfil: USE_MOCK,
   categorias: USE_MOCK,
   produtos: USE_MOCK,
+  pedidos: USE_MOCK,
+  enderecos: USE_MOCK,
+  pontos: USE_MOCK,
+  notificacoes: USE_MOCK,
+} as const;
 
-  // Ainda sem backend
-  pedidos: SEM_BACKEND,
-  enderecos: SEM_BACKEND,
-  pontos: SEM_BACKEND,
-  notificacoes: SEM_BACKEND,
+// Módulo aparece no app (menu, rotas e chamadas): tem backend ou o mock está ligado.
+// Sem isso ele fica escondido — nem mock nem tela de erro. Pontos é parcial: a tela sempre
+// aparece com o saldo real; só extrato e resgate dependem de DISPONIVEL.pontos ("Em breve").
+export const DISPONIVEL = {
+  pedidos: BACKEND.pedidos || USE_MOCK,
+  enderecos: BACKEND.enderecos || USE_MOCK,
+  pontos: BACKEND.pontos || USE_MOCK,
+  notificacoes: BACKEND.notificacoes || USE_MOCK,
 } as const;
 
 export type ModuloMock = keyof typeof MOCK;
