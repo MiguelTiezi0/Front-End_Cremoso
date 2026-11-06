@@ -4,8 +4,42 @@
 > (`http://localhost:8080/api`), sobre um Postgres descartável com seed de dev.
 > Testes pela interface com Playwright 1.64 no Chrome.
 >
-> **Rodada 3 — ajustes finais antes do commit** (seção 0). A rodada 2 (correções) está nas
-> seções 1–5 e a rodada 1 (antes) está resumida na seção 6.
+> **Rodada 4 — segurança e deploy na Vercel (06/11/2026)** logo abaixo. A rodada 3 (ajustes
+> finais) está na seção 0, a rodada 2 (correções) nas seções 1–5 e a rodada 1 (antes) está
+> resumida na seção 6.
+
+## Rodada 4 — segurança e deploy na Vercel (06/11/2026)
+
+| Verificação | Resultado |
+|---|---|
+| Playwright (suíte inteira, `api-real` + `demonstracao`) | **45/45** em 3,7 min, incluindo o teste de token expirado (com `E2E_JWT_SECRET`) |
+| `npm run test:build` (novo) | **4/4** |
+| `npm run build` | ok |
+| `npm run lint` | 0 erros, 3 warnings (os mesmos de antes, do React Compiler com `react-hook-form`) |
+
+**O que mudou**
+
+- **Credencial removida do `detalhes.md`:** a senha do Postgres saiu da seção 4 (agora aponta
+  para a variável `SPRING_DATASOURCE_PASSWORD`) e do texto do Bug 5. Varredura nos arquivos
+  rastreados do front e do back: não há outra senha, token ou chave real. O que aparece são
+  placeholders (`.env.example`, `entrega1.md`), as contas de teste do seed de dev
+  (`Admin@123`, `Senha@123`) e segredos fixos dos testes do backend. O histórico **não** foi
+  reescrito: a senha antiga continua nos commits anteriores (inclusive no `origin/main`), por
+  isso ela precisa ser trocada no Postgres.
+- **`vercel.json`:** rewrite de SPA `{"source": "/(.*)", "destination": "/index.html"}`, para
+  que rotas como `/login` ou `/admin/produtos` abertas direto (ou com F5) não deem 404. A
+  Vercel serve arquivos existentes (`/assets/...`) antes de aplicar o rewrite.
+- **`tests/build.test.mjs` (novo, `npm run test:build`):** roda o `buildCommand` do
+  `vercel.json` e confere que (1) o rewrite está lá e cobre rotas profundas; (2) existe
+  `dist/index.html`; (3) é o HTML do Cremoso já compilado (`lang="pt-BR"`, título,
+  `<div id="root">`, script em `/assets/index-*.js` e nenhuma referência a `src/main.tsx`);
+  (4) todo JS/CSS referenciado no HTML existe no `dist/`. Usa o test runner nativo do Node,
+  sem dependências novas.
+
+**Como rodei:** Postgres descartável (cluster temporário do PostgreSQL 18 local, porta 5433,
+banco `cremoso_e2e`, apagado no fim), backend com `APP_ENV=dev` e um `JWT_SECRET` aleatório só
+para a execução, Vite subido pelo próprio Playwright. Backend, Vite e Postgres foram desligados
+no fim.
 
 ## Resumo
 
