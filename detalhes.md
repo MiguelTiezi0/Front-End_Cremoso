@@ -157,7 +157,7 @@ Cremoso/
 - **Banco:** `cremoso_DB`
 - **Host:** `localhost:5432`
 - **Usuário:** `postgres`
-- **Senha:** `140508`
+- **Senha:** definida pela variável de ambiente `SPRING_DATASOURCE_PASSWORD` (não versionar)
 - **DDL automático:** `spring.jpa.hibernate.ddl-auto=update` (cria/atualiza tabelas automaticamente)
 - **SQL no console:** ativado com `spring.jpa.show-sql=true`
 
@@ -472,7 +472,7 @@ Se não definida, o código já tem o fallback `"http://localhost:8080"` hardcod
 
 **Onde:** `cremosoAPP/src/main/resources/application.properties`
 
-**Problema:** `spring.datasource.password=140508` está versionado no git.
+**Problema:** `spring.datasource.password=<senha>` (valor literal) está versionado no git.
 
 **Correção:** Usar variável de ambiente ou arquivo `.env` + `.gitignore`.
 
