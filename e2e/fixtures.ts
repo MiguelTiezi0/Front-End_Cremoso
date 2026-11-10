@@ -1,4 +1,13 @@
-import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +41,19 @@ const OBS_FILE = path.join(
 
 // Fixture `obs`: registra erros de console, exceções JS e respostas HTTP com erro em
 // cada teste. Não falha o teste sozinho; o resumo vai para test-results/observacoes.jsonl.
-export const test = base.extend<{ obs: Observacoes }>({
+// Sessões do painel abertas por abrirPainel: fechadas ao fim de cada teste, senão continuam
+// atualizando a fila a cada 10 s e deixam os testes seguintes lentos.
+const paineisAbertos: BrowserContext[] = [];
+
+export const test = base.extend<{ obs: Observacoes; fecharPaineis: void }>({
+  fecharPaineis: [
+    async ({ browser }, usar) => {
+      void browser;
+      await usar();
+      await Promise.all(paineisAbertos.splice(0).map((c) => c.close()));
+    },
+    { auto: true },
+  ],
   // (o 2º parâmetro não se chama `use` para o eslint não confundir com o hook do React)
   obs: async ({ page }, usar, testInfo) => {
     const obs: Observacoes = { consoleErrors: [], pageErrors: [], httpErrors: [], requestFailed: [] };
@@ -130,37 +151,107 @@ export async function apiNovoCliente(request: APIRequestContext, prefixo: string
   return { email, senha };
 }
 
-/** Painel (ADMIN): muda o status do pedido. */
-export async function apiStatus(
-  request: APIRequestContext,
-  token: string,
-  id: number,
-  statusAtual: string,
-  para: string,
-  motivo?: string,
-) {
-  const res = await request.post(`${API_URL}/admin/pedidos/${id}/status`, {
-    headers: auth(token),
-    data: { para, statusAtual, motivo },
-  });
-  expect(res.status(), `${statusAtual} → ${para}`).toBe(200);
-  return res.json();
-}
-
-/** Painel (ADMIN): CONFIRMADO, PENDENTE ou DEVOLVIDO. */
-export async function apiPagamento(request: APIRequestContext, token: string, id: number, status: string) {
-  const res = await request.post(`${API_URL}/admin/pedidos/${id}/pagamento`, {
-    headers: auth(token),
-    data: { status },
-  });
-  expect(res.status(), `pagamento → ${status}`).toBe(200);
-  return res.json();
-}
-
 export async function apiEsgotado(request: APIRequestContext, token: string, id: number, esgotado: boolean) {
   const res = await request.patch(`${API_URL}/produtos/${id}/esgotado`, {
     headers: auth(token),
     data: { esgotado },
   });
   expect(res.status()).toBe(200);
+}
+
+/** Cliente (CLIENTE): cria um pedido de retirada pela API e devolve o JSON. */
+export async function apiCriarPedido(
+  request: APIRequestContext,
+  token: string,
+  itens: { produtoId: number; quantidade: number; observacao?: string }[],
+  extra: Record<string, unknown> = {},
+) {
+  const res = await request.post(`${API_URL}/pedidos`, {
+    headers: { ...auth(token), 'Idempotency-Key': crypto.randomUUID() },
+    data: { tipoEntrega: 'RETIRADA', formaPagamento: 'PIX', itens, ...extra },
+  });
+  expect(res.status(), 'pedido criado').toBe(201);
+  return res.json();
+}
+
+// --- Painel da loja ------------------------------------------------------------------------
+
+/** Abre o painel (login de ADMIN) numa sessão separada da do cliente. */
+export async function abrirPainel(
+  browser: Browser,
+  testInfo: TestInfo,
+  rota = '/admin/pedidos',
+  opcoes: { preparar?: (p: Page) => Promise<void>; viewport?: { width: number; height: number } } = {},
+) {
+  const { baseURL, locale, timezoneId, viewport } = testInfo.project.use;
+  const contexto = await browser.newContext({
+    baseURL,
+    locale,
+    timezoneId,
+    viewport: opcoes.viewport ?? viewport,
+    hasTouch: !!opcoes.viewport,
+  });
+  paineisAbertos.push(contexto);
+  const painel = await contexto.newPage();
+  await opcoes.preparar?.(painel);
+  await loginUI(painel, ADMIN.email, ADMIN.senha);
+  await expect(painel).toHaveURL(/\/dashboard$/);
+  await painel.goto(rota);
+  return painel;
+}
+
+/** Card do pedido no painel. */
+export const cardDoPedido = (painel: Page, id: number) =>
+  painel.getByRole('article', { name: `Pedido #${id}` });
+
+/** Vai para a aba do painel ("Novos", "Aceitos", "Em preparo", "Prontos", "Concluídos"). */
+export async function abaDoPainel(painel: Page, nome: string) {
+  await painel.getByRole('tab', { name: new RegExp(`^${nome}`) }).click();
+}
+
+/** Painel: confirma o Pix do pedido (com a conferência do extrato). */
+export async function confirmarPixNoPainel(painel: Page, id: number) {
+  const card = cardDoPedido(painel, id);
+  await card.getByRole('button', { name: /Confirmar pagamento|Cliente pagou: confirmar/ }).click();
+  await expect(card.getByText('Confira no extrato do banco antes de confirmar.')).toBeVisible();
+  await card.getByRole('button', { name: 'Sim, o Pix caiu' }).click();
+  await expect(card.getByTestId('pagamento-painel')).toHaveText('Pix confirmado');
+}
+
+/** Painel: um toque no botão de mudança de status do card. */
+export async function botaoNoPainel(painel: Page, id: number, nome: string) {
+  await cardDoPedido(painel, id).getByRole('button', { name: nome, exact: true }).click();
+}
+
+/** Painel: cancela pedindo o motivo na própria tela. */
+export async function cancelarNoPainel(painel: Page, id: number, motivo: string) {
+  const card = cardDoPedido(painel, id);
+  await card.getByRole('button', { name: /^Cancelar/ }).click();
+  const grupo = card.getByRole('group', { name: 'Cancelar pedido' });
+  await grupo.getByRole('button', { name: 'Outro motivo' }).click();
+  await grupo.getByLabel('Motivo do cancelamento').fill(motivo);
+  await grupo.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+  await expect(toast(painel, `Pedido #${id} cancelado.`)).toBeVisible();
+}
+
+// O Pix só vence depois de 15 min. Para testar o vencimento de verdade, o teste antecipa o
+// vencimento direto no banco descartável do e2e (E2E_DATABASE_URL, o mesmo do backend) com
+// o Python do backend. Sem a variável, os testes que precisam disso são pulados.
+export const PODE_VENCER_PIX = !!process.env.E2E_DATABASE_URL;
+
+export function vencerPix(pedidoId: number, minutosAtras = 1) {
+  const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'Back-end');
+  const backend = process.env.E2E_BACKEND_DIR ?? raiz;
+  const python =
+    process.platform === 'win32'
+      ? path.join(backend, '.venv', 'Scripts', 'python.exe')
+      : path.join(backend, '.venv', 'bin', 'python');
+  const script = [
+    'import os, sys, psycopg',
+    "url = os.environ['E2E_DATABASE_URL'].replace('postgresql+psycopg://', 'postgresql://')",
+    'with psycopg.connect(url, autocommit=True) as c:',
+    "    c.execute('UPDATE pedidos SET pix_expira_em = now() - make_interval(mins => %s) WHERE id = %s',"
+    + ' (int(sys.argv[2]), int(sys.argv[1])))',
+  ].join('\n');
+  execFileSync(python, ['-c', script, String(pedidoId), String(minutosAtras)], { env: process.env });
 }

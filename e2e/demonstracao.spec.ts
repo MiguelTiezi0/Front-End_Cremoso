@@ -86,4 +86,21 @@ test.describe('Modo demonstração (VITE_USE_MOCK=true)', () => {
     await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toBeVisible();
     expect(chamadas).toEqual([]);
   });
+
+  test('painel da loja no mock: fila, avançar o pedido e configurações', async ({ page }) => {
+    const chamadas = contarChamadasApi(page);
+    await entrar(page, 'admin@cremoso.com', 'Admin@123');
+    await page.goto('/admin/pedidos');
+
+    // Pedido de exemplo #1001 (entrega, a caminho) na aba "Prontos / saiu".
+    await page.getByRole('tab', { name: /^Prontos/ }).click();
+    const card = page.getByRole('article', { name: 'Pedido #1001' });
+    await card.getByRole('button', { name: 'Concluir (entregue)', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Pedido #1001: Concluído.' })).toBeVisible();
+    await expect(card).toHaveCount(0);
+
+    await page.goto('/admin/loja');
+    await expect(page.getByLabel('Chave Pix')).toHaveValue('demonstracao@cremoso.com');
+    expect(chamadas).toEqual([]);
+  });
 });

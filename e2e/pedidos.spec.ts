@@ -2,23 +2,31 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import {
   ADMIN,
   API_URL,
+  PODE_VENCER_PIX,
   RUN,
+  abaDoPainel,
+  abrirPainel,
   apiCriarCategoria,
   apiCriarProduto,
   apiEsgotado,
   apiNovoCliente,
-  apiPagamento,
-  apiStatus,
   apiToken,
+  botaoNoPainel,
+  cancelarNoPainel,
+  cardDoPedido,
+  confirmarPixNoPainel,
   expect,
   loginUI,
   test,
+  vencerPix,
 } from './fixtures';
 
 // Entrega 2 (cliente): cardápio público, carrinho, checkout, tela do pedido, meus pedidos
 // e pontos, contra a API real. Requer a loja configurada pelo seed de dev do backend
 // (aberta, entrega ligada, taxa R$ 8,00, mínimo R$ 15,00 para entrega, WhatsApp).
 // Cada teste usa uma conta nova de cliente para não mexer no saldo das contas do seed.
+// O que a loja faz (aceitar, confirmar Pix, preparar, concluir, cancelar, devolver) é feito
+// pelo painel (/admin/pedidos) numa segunda sessão, logada como ADMIN.
 
 interface Produto {
   id: number;
@@ -288,15 +296,21 @@ test.describe('Tela do pedido', () => {
   test('polling (15s) mostra o pagamento confirmado e a mudança de status sem recarregar', async ({
     page,
     request,
-  }) => {
+    browser,
+  }, testInfo) => {
+    test.slow(); // passa pelo painel numa segunda sessão
     await page.clock.install();
     const produto = await novoProduto(request, 'Polling');
     await entrarComContaNova(page, request, 'polling');
     const id = await fazerPedido(page, produto);
     await expect(page.getByTestId('status-pagamento')).toHaveText('Pix · aguardando pagamento');
 
-    await apiPagamento(request, admin, id, 'CONFIRMADO');
-    await apiStatus(request, admin, id, 'RECEBIDO', 'ACEITO');
+    // A loja confirma o Pix e aceita pelo painel.
+    const painel = await abrirPainel(browser, testInfo);
+    await confirmarPixNoPainel(painel, id);
+    await botaoNoPainel(painel, id, 'Aceitar pedido');
+    await abaDoPainel(painel, 'Aceitos');
+    await expect(cardDoPedido(painel, id)).toBeVisible();
     await page.clock.fastForward('00:16');
 
     await expect(page.getByTestId('status-pagamento')).toHaveText('Pix · pagamento confirmado');
@@ -307,39 +321,33 @@ test.describe('Tela do pedido', () => {
   test('Pix expirado mostra o aviso e, se a loja confirmar depois, o pedido volta sem recarregar', async ({
     page,
     request,
-  }) => {
+    browser,
+  }, testInfo) => {
+    test.slow(); // passa pelo painel numa segunda sessão
+    test.skip(!PODE_VENCER_PIX, 'precisa de E2E_DATABASE_URL para vencer o Pix sem esperar 15 min');
     await page.clock.install();
     const produto = await novoProduto(request, 'Expirado');
     await entrarComContaNova(page, request, 'expirado');
     const id = await fazerPedido(page, produto);
 
-    // A API cancela o Pix vencido depois de 15 min: simula essa resposta.
-    await page.route(`${API_URL}/pedidos/${id}`, async (route) => {
-      const res = await route.fetch();
-      const pedido = await res.json();
-      await route.fulfill({
-        response: res,
-        json: {
-          ...pedido,
-          status: 'CANCELADO',
-          canceladoPor: 'SISTEMA',
-          motivoCancelamento: 'PIX_EXPIRADO',
-          pix: null,
-          podeCancelar: false,
-          historico: [...pedido.historico, { status: 'CANCELADO', em: pedido.data }],
-        },
-      });
-    });
+    // O Pix venceu há 1 minuto: na próxima leitura a API cancela (SISTEMA, PIX_EXPIRADO).
+    vencerPix(id);
     await page.clock.fastForward('00:16');
     const aviso = 'Pix expirado. Se você já pagou, a loja vai confirmar em breve.';
     await expect(page.getByRole('status').filter({ hasText: aviso })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
 
-    // A loja confirma o Pix atrasado: o pedido volta para o fluxo e o polling mostra.
-    await page.unroute(`${API_URL}/pedidos/${id}`);
-    await apiPagamento(request, admin, id, 'CONFIRMADO');
-    await page.clock.fastForward('00:16');
+    // O cliente pagou no limite: a loja confirma pela seção do Pix vencido.
+    const painel = await abrirPainel(browser, testInfo);
+    const secao = painel.getByRole('region', { name: 'Pix vencido — ainda dá pra confirmar' });
+    await expect(secao.getByRole('article', { name: `Pedido #${id}` })).toBeVisible();
+    await expect(cardDoPedido(painel, id).getByTestId('prazo-pix')).toHaveText(/^\d\d:\d\d$/);
+    await confirmarPixNoPainel(painel, id);
+    await expect(secao.getByRole('article', { name: `Pedido #${id}` })).toHaveCount(0);
+    await expect(cardDoPedido(painel, id)).toBeVisible(); // de volta à aba Novos
 
+    // O polling do cliente mostra o pedido de volta, sem recarregar.
+    await page.clock.fastForward('00:16');
     await expect(page.getByText(aviso)).toHaveCount(0);
     await expect(page.getByTestId('status-pagamento')).toHaveText('Pix · pagamento confirmado');
     await expect(page.getByTestId('descricao-status')).toHaveText(
@@ -347,7 +355,8 @@ test.describe('Tela do pedido', () => {
     );
   });
 
-  test('cancelar só aparece em RECEBIDO e ACEITO', async ({ page, request }) => {
+  test('cancelar só aparece em RECEBIDO e ACEITO', async ({ page, request, browser }, testInfo) => {
+    test.slow(); // passa pelo painel numa segunda sessão
     await page.clock.install();
     const produto = await novoProduto(request, 'Cancelar');
     await entrarComContaNova(page, request, 'cancelar');
@@ -355,13 +364,15 @@ test.describe('Tela do pedido', () => {
     const cancelar = page.getByRole('button', { name: 'Cancelar pedido' });
     await expect(cancelar).toBeVisible();
 
-    await apiPagamento(request, admin, id, 'CONFIRMADO');
-    await apiStatus(request, admin, id, 'RECEBIDO', 'ACEITO');
+    const painel = await abrirPainel(browser, testInfo);
+    await confirmarPixNoPainel(painel, id);
+    await botaoNoPainel(painel, id, 'Aceitar pedido');
     await page.clock.fastForward('00:16');
     await expect(page.getByTestId('descricao-status')).toHaveText('A loja aceitou seu pedido.');
     await expect(cancelar).toBeVisible();
 
-    await apiStatus(request, admin, id, 'ACEITO', 'EM_PREPARO');
+    await abaDoPainel(painel, 'Aceitos');
+    await botaoNoPainel(painel, id, 'Começar preparo');
     await page.clock.fastForward('00:16');
     await expect(page.getByTestId('descricao-status')).toHaveText('Seu pedido está sendo preparado.');
     await expect(cancelar).toHaveCount(0);
@@ -379,18 +390,27 @@ test.describe('Tela do pedido', () => {
     await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
   });
 
-  test('pagamento DEVOLVIDO aparece com clareza', async ({ page, request }) => {
+  test('pagamento DEVOLVIDO aparece com clareza', async ({ page, request, browser }, testInfo) => {
+    test.slow(); // passa pelo painel numa segunda sessão
     const produto = await novoProduto(request, 'Devolvido');
     await entrarComContaNova(page, request, 'devolvido');
     const id = await fazerPedido(page, produto);
-    await apiPagamento(request, admin, id, 'CONFIRMADO');
-    await apiStatus(request, admin, id, 'RECEBIDO', 'CANCELADO', 'Acabou o pistache');
+
+    // Pago e depois cancelado pela loja: o painel destaca a devolução.
+    const painel = await abrirPainel(browser, testInfo);
+    await confirmarPixNoPainel(painel, id);
+    await cancelarNoPainel(painel, id, 'Acabou o pistache');
+    const devolver = painel.getByRole('region', { name: 'Devolver ao cliente' });
+    const card = devolver.getByRole('article', { name: `Pedido #${id}` });
+    await expect(card).toContainText('Devolver ao cliente: R$ 18,90 pelo Pix.');
 
     await page.reload();
     await expect(page.getByText('Devolução a caminho')).toBeVisible();
     await expect(page.getByText('Motivo: Acabou o pistache')).toBeVisible();
 
-    await apiPagamento(request, admin, id, 'DEVOLVIDO');
+    await card.getByRole('button', { name: 'Marcar como DEVOLVIDO' }).click();
+    await card.getByRole('button', { name: 'Sim, já devolvi' }).click();
+    await expect(card).toHaveCount(0);
     await page.reload();
     const aviso = page.getByRole('status').filter({ hasText: 'Pagamento devolvido' });
     await expect(aviso).toContainText('A loja devolveu R$ 18,90 para você pelo Pix.');
@@ -431,7 +451,9 @@ test.describe('Meus pedidos e pontos', () => {
   test('saldo zero explica como ganhar; concluir credita e cancelar estorna no extrato', async ({
     page,
     request,
-  }) => {
+    browser,
+  }, testInfo) => {
+    test.slow(); // passa pelo painel numa segunda sessão
     const produto = await novoProduto(request, 'Pontos'); // 19 pontos
     await entrarComContaNova(page, request, 'pontos');
     await page.goto('/pontos');
@@ -440,16 +462,26 @@ test.describe('Meus pedidos e pontos', () => {
     await expect(page.getByRole('heading', { name: 'Em breve' })).toHaveCount(1); // resgate
 
     const id = await fazerPedido(page, produto);
-    await apiPagamento(request, admin, id, 'CONFIRMADO');
-    for (const [de, para] of [['RECEBIDO', 'ACEITO'], ['ACEITO', 'EM_PREPARO'], ['EM_PREPARO', 'PRONTO'], ['PRONTO', 'CONCLUIDO']]) {
-      await apiStatus(request, admin, id, de, para);
+    // A loja leva o pedido até o fim pelo painel.
+    const painel = await abrirPainel(browser, testInfo);
+    await confirmarPixNoPainel(painel, id);
+    await botaoNoPainel(painel, id, 'Aceitar pedido');
+    for (const [aba, botao] of [
+      ['Aceitos', 'Começar preparo'],
+      ['Em preparo', 'Pronto para retirada'],
+      ['Prontos', 'Concluir (entregue)'],
+    ]) {
+      await abaDoPainel(painel, aba);
+      await botaoNoPainel(painel, id, botao);
     }
+    await abaDoPainel(painel, 'Concluídos');
+    await expect(cardDoPedido(painel, id)).toBeVisible();
     await page.goto('/pontos');
     await expect(page.getByText('19 pts', { exact: true })).toBeVisible();
     const extrato = page.getByRole('list', { name: 'Extrato de pontos' });
     await expect(extrato.getByRole('listitem').filter({ hasText: `Pedido #${id}` })).toContainText('+19');
 
-    await apiStatus(request, admin, id, 'CONCLUIDO', 'CANCELADO', 'Cobrança contestada');
+    await cancelarNoPainel(painel, id, 'Cobrança contestada');
     await page.reload();
     await expect(extrato.getByRole('listitem').filter({ hasText: `Estorno do pedido #${id}` })).toContainText('-19');
     await expect(page.getByText('Você ganha pontos a cada pedido concluído')).toBeVisible();
