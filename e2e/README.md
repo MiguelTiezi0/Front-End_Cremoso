@@ -48,10 +48,21 @@ Variáveis opcionais: `E2E_BASE_URL`, `E2E_API_URL`, `E2E_BROWSER_CHANNEL` (ex.:
 | `visitante.spec.ts` | Acesso sem login, cadastro (sucesso, 409, 400, validação do front), regras de senha/e-mail/telefone iguais no front e no back, bloco "Contas de teste" em dev, login (sucesso e 401) |
 | `cliente.spec.ts` | Dados e saldo, validação da sessão em `/auth/me` (dados atualizados e loader), destaques (lista, vazio, erro), catálogo, pontos nulos nos cards, erros de rede, edição de perfil, bloqueio de admin, logout, token inválido e expirado |
 | `admin.spec.ts` | CRUD de categorias e produtos pela UI, 409 ao excluir, filtros, endpoints sem tela, valores quebrados, pontos nulos (`— / —`), placeholder de imagem (tabela e mobile) |
+| `pedidos.spec.ts` | Entrega 2 (cliente): cardápio público (aberto/fechado, esgotado), detalhe, carrinho no navegador e revalidação (preço e esgotado), checkout com login/cadastro e volta, retirada e entrega (mínimo, CEP, taxa), idempotência e botão travado, tela do pedido (QR, copiar, contagem, polling, Pix expirado e confirmação tardia, cancelar, devolvido, WhatsApp), meus pedidos, pontos (crédito e estorno) e layout em 390×844 |
 | `mock-flag.spec.ts` | Regra do mock seguro (`src/config/mockFlag.ts`): desligado sem a variável, só liga com `"true"`, nunca em produção. Não abre navegador |
 | `evidencias/` | Prints do relatório `TESTE_FRONT.md` (01–05: antes das correções; 06–07: depois) |
 
-Só três testes usam `page.route`; todo o resto bate na API real:
+Os testes batem na API real. `page.route` só entra onde a situação não dá para criar
+pela API na hora:
 - destaques vazios e com erro: simulam a resposta de `/produtos/ativos`;
-- resgate de pontos no modo misto: troca só o `saldoPontos` de `/auth/me`, porque a API
-  ainda não tem pontos.
+- pontos: troca só o saldo de `/pontos/saldo` (conta nova tem 0);
+- loja fechada (fora do horário e sem Pix): troca campos de `/loja`;
+- Pix expirado: a API só cancela depois de 15 min, então a resposta do pedido é trocada
+  pela de um pedido cancelado com `PIX_EXPIRADO`; depois a loja confirma o pagamento de
+  verdade e o teste vê o pedido voltar pelo polling;
+- botão travado: segura a resposta do `POST /pedidos` para conferir que sai um envio só.
+
+Os testes de polling usam `page.clock` para avançar os 15s sem esperar.
+
+O `pedidos.spec.ts` precisa da loja configurada pelo seed de dev do backend (aberta,
+entrega ligada, taxa R$ 8,00, mínimo R$ 15,00, WhatsApp `(16) 99999-0000`).

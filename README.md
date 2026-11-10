@@ -2,7 +2,7 @@
 
 Front-end do sistema de delivery de sorvetes **Cremoso**, construído em **React + TypeScript + Vite**, com **Tailwind CSS**, **React Router**, **React Hook Form + Zod**, **Axios** e **Lucide**.
 
-Por padrão o app usa a **API Python** (`VITE_API_BASE_URL`) nos módulos que ela já tem (auth, perfil, categorias e produtos). Para rodar **sem back-end**, use `VITE_USE_MOCK=true` em dev: tudo passa para o mock em memória (persistido em `localStorage`) e a tela mostra o aviso "Modo demonstração" — ver [Mock por módulo](#-mock-por-módulo).
+Por padrão o app usa a **API Python** (`VITE_API_BASE_URL`) nos módulos que ela já tem (auth, perfil, categorias, produtos, loja/cardápio, pedidos e pontos). Para rodar **sem back-end**, use `VITE_USE_MOCK=true` em dev: tudo passa para o mock em memória (persistido em `localStorage`) e a tela mostra o aviso "Modo demonstração" — ver [Mock por módulo](#-mock-por-módulo).
 
 ---
 
@@ -51,10 +51,31 @@ mostra este bloco em modo dev (`npm run dev`).
 - **Perfil** com dados editáveis (nome, telefone, e-mail, senha) + **histórico de pedidos**.
 - **Endereços de entrega** — CRUD completo (adicionar, editar, remover, marcar como padrão).
 
+### Loja (sem login) — Entrega 2
+- **Catálogo** (`/catalogo`) e **detalhe do produto** (`/produto/:id`) públicos, pelo `GET /cardapio`.
+  Produto esgotado aparece marcado e não entra no carrinho. Faixa "Aberto agora" /
+  "Fechado, abre às HH:MM" pelo `GET /loja` (a loja aparece fechada enquanto o Pix não está
+  configurado). Visitante cai no catálogo ao abrir `/`.
+- **Carrinho** (`/carrinho`) guardado no navegador (`localStorage`), com quantidade e
+  observação por item. Ao abrir, confere tudo com o cardápio: avisa preço mudado e bloqueia
+  a finalização enquanto houver item esgotado ou fora do cardápio.
+
 ### Painel do Cliente
+- **Checkout** (`/checkout`, exige login; sem conta, o cadastro volta para o checkout) —
+  retirada ou entrega (só se a loja ligou, só na cidade da loja, CEP obrigatório, com a
+  taxa), pedido mínimo da entrega avisado antes de finalizar, pagamento só Pix, resumo com
+  total e pontos. O envio leva `Idempotency-Key` (a mesma enquanto o conteúdo não muda) e o
+  botão trava durante o envio.
+- **Pedido** (`/pedidos/:id`) — status com nomes amigáveis, linha do tempo, Pix com QR Code,
+  "Copiar código Pix" e contagem regressiva de 15 min, aviso de Pix expirado
+  (`motivoCancelamento: "PIX_EXPIRADO"`), devolução, cancelar (só quando a API permite) e
+  "Falar com a loja no WhatsApp". Atualiza a cada 15s (backoff de `src/lib/polling.ts`
+  depois de erro), inclusive com o pedido cancelado por Pix vencido: se a loja confirmar o
+  pagamento em até 2 h, o pedido volta ao fluxo na tela.
 - **Dashboard** — saudação, saldo de pontos, status do último pedido, atalhos e destaques.
-- **Pontos (fidelidade)** — saldo, extrato (ganhos/resgates) e resgate de produtos por pontos.
-- **Pedidos** — listagem com filtro por status + detalhe com linha do tempo de acompanhamento (polling a cada 15s, pronto para WebSocket).
+- **Pontos (fidelidade)** — saldo e extrato reais (ganhos e estornos). Com saldo 0 mostra
+  "Você ganha pontos a cada pedido concluído". O resgate segue "Em breve" (só no mock).
+- **Meus pedidos** — lista real da API com filtro (em andamento, concluídos, cancelados).
 - **Notificações** — central com sino/contador no header, marcar como lida / todas como lidas (polling a cada 30s só para clientes; depois de um erro espaça para 2–10 min).
 
 ### Painel Administrativo (CRUD)
@@ -72,9 +93,10 @@ src/
   components/     Componentes reutilizáveis
     ui/           Botões, inputs, modal, toggle, badges, loaders, estados vazios
     layout/       Header, logo, menu do usuário, sino de notificações
-  context/        AuthContext, NotificationContext, ToastContext
+  context/        AuthContext, CarrinhoContext, NotificationContext, ToastContext
   features/       Telas organizadas por feature
-    auth/  dashboard/  pontos/  pedidos/  notificacoes/  admin/
+    auth/  dashboard/  catalogo/  carrinho/  checkout/  pontos/  pedidos/  notificacoes/  admin/
+  hooks/          useLoja (status da loja) e useRevalidarCarrinho
   lib/            Helpers (formatação BRL/data, máscaras, extração de erro)
   routes/         Proteção de rotas (ProtectedRoute / PublicOnlyRoute)
   types/          Tipos TypeScript do domínio (Produto, Categoria, Pedido, …)
@@ -98,10 +120,12 @@ Três objetos nesse arquivo:
 | Módulo | Backend | Com a API real (`VITE_USE_MOCK` ≠ `true`, e sempre em produção) | Modo demonstração (`VITE_USE_MOCK=true`, só dev) |
 | --- | --- | --- | --- |
 | Auth, Perfil, Categorias, Produtos | ✅ | API real | mock |
-| Pedidos | ❌ | **escondido:** fora do menu, do menu do usuário, do dashboard ("Último pedido") e do perfil (histórico); a rota cai no 404 | mock |
-| Endereços | ❌ | **escondido:** fora do menu do usuário; a rota cai no 404 | mock |
+| Loja e cardápio | ✅ | API real (`GET /loja`, `GET /cardapio`, sem login) | mock (loja sempre aberta) |
+| Pedidos | ✅ | API real | mock |
+| Pontos (saldo e extrato) | ✅ | API real | mock |
+| Resgate de pontos | ❌ | **"Em breve"**, sem chamar mock | mock |
+| Endereços (cadastro) | ❌ | **escondido:** fora do menu do usuário; a rota cai no 404. No checkout o endereço é digitado | mock |
 | Notificações | ❌ | **escondido:** sem sino e sem polling; a rota cai no 404 | mock |
-| Pontos | ❌ | **visível:** saldo real de `/auth/me` (`saldoPontos`); extrato e resgate aparecem como "Em breve", sem chamar mock | mock |
 
 **`USE_MOCK` é seguro por padrão** (`src/config/mockFlag.ts`):
 
@@ -126,8 +150,7 @@ Rotas que o front espera quando cada módulo ganhar backend:
 | Recurso      | Método/rota                            |
 | ------------ | -------------------------------------- |
 | Endereços    | `GET/POST/PUT/DELETE /clientes/me/enderecos`, `PATCH /clientes/me/enderecos/{id}/padrao` |
-| Pedidos      | `GET /pedidos`, `GET /pedidos/{id}`    |
-| Pontos       | `GET /pontos/saldo`, `GET /pontos/extrato`, `POST /pontos/resgates` |
+| Resgate      | `POST /pontos/resgates`                |
 | Notificações | `GET /notificacoes`, `PATCH /notificacoes/{id}/lida`, `PATCH /notificacoes/lidas` |
 
 **Sessão / JWT:** o cliente Axios injeta `Authorization: Bearer <token>` (`src/api/client.ts`)
