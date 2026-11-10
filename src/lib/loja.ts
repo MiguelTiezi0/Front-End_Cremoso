@@ -1,12 +1,15 @@
 import type { Loja } from '@/types';
 
+// Disparado pelo painel depois de salvar as configurações (o aviso de "sem Pix" confere de novo).
+export const EVENTO_LOJA_SALVA = 'cremoso:loja-salva';
+
 // Horários da loja são do fuso dela, não do aparelho do cliente.
 const FUSO_LOJA = 'America/Sao_Paulo';
 
-const dataNoFuso = (d: Date) =>
+export const dataNoFuso = (d: Date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_LOJA }).format(d); // AAAA-MM-DD
 
-const horaNoFuso = (d: Date) =>
+export const horaNoFuso = (d: Date) =>
   new Intl.DateTimeFormat('pt-BR', {
     timeZone: FUSO_LOJA,
     hour: '2-digit',
