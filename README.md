@@ -63,9 +63,11 @@ mostra este bloco em modo dev (`npm run dev`).
 ### Painel do Cliente
 - **Checkout** (`/checkout`, exige login; sem conta, o cadastro volta para o checkout) —
   retirada ou entrega (só se a loja ligou, só na cidade da loja, CEP obrigatório, com a
-  taxa), pedido mínimo da entrega avisado antes de finalizar, pagamento só Pix, resumo com
-  total e pontos. O envio leva `Idempotency-Key` (a mesma enquanto o conteúdo não muda) e o
-  botão trava durante o envio.
+  taxa), pedido mínimo da entrega avisado antes de finalizar, pagamento só Pix. Total, taxa,
+  pontos e mínimo vêm da **prévia da API** (`POST /pedidos/previa`), refeita a cada mudança;
+  cada item leva a própria observação (até 140 caracteres), separada da observação geral.
+  O envio leva `Idempotency-Key` (a mesma enquanto o conteúdo não muda) e o botão trava
+  durante o envio.
 - **Pedido** (`/pedidos/:id`) — status com nomes amigáveis, linha do tempo, Pix com QR Code,
   "Copiar código Pix" e contagem regressiva de 15 min, aviso de Pix expirado
   (`motivoCancelamento: "PIX_EXPIRADO"`), devolução, cancelar (só quando a API permite) e
@@ -78,8 +80,32 @@ mostra este bloco em modo dev (`npm run dev`).
 - **Meus pedidos** — lista real da API com filtro (em andamento, concluídos, cancelados).
 - **Notificações** — central com sino/contador no header, marcar como lida / todas como lidas (polling a cada 30s só para clientes; depois de um erro espaça para 2–10 min).
 
-### Painel Administrativo (CRUD)
-- **Produtos** — tabela/grid com busca por descrição, filtro por categoria e status; formulário com todos os campos da entidade; toggle ativar/inativar; `dataCadastro`/`dataAtualizacao` somente leitura.
+### Painel da loja (admin) — feito para um celular ou tablet fixo no balcão
+- **Pedidos** (`/admin/pedidos`) — abas Novos (`RECEBIDO`), Aceitos / aguardando Pix,
+  Em preparo, Prontos / saiu e Concluídos de hoje; os ativos de qualquer dia ficam na fila.
+  Pedido novo em destaque, com hora e tempo de espera. Atualiza a cada 10 s (backoff de
+  `src/lib/polling.ts` quando a conexão falha) e toca um som em pedido novo: o navegador
+  exige um toque, então há o botão "Ativar som" e um aviso enquanto o som está desligado.
+  Pede para a tela não apagar (Wake Lock) e só avisa se o navegador recusar.
+  - Botões grandes só para o que a API permite no status. "Confirmar pagamento" pede para
+    conferir o extrato do banco; sem Pix confirmado, "Começar preparo" fica travado com o
+    motivo. Cancelar pede o motivo na própria tela (sem `alert`/`confirm`).
+  - Seções "Pix vencido — ainda dá pra confirmar" (prazo `confirmarPagamentoAte` e o botão
+    "Cliente pagou: confirmar") e "Devolver ao cliente" (pago e cancelado → "Marcar como
+    DEVOLVIDO"), com atalho no topo. Também busca os cancelados de ontem, para não perder
+    devolução nem Pix vencido perto da meia-noite.
+  - "Avisar cliente no WhatsApp" com mensagem pronta para o status e "Imprimir comanda"
+    (número, horário, cliente, itens com observação, observação geral, total, Pix, retirada
+    ou endereço com CEP), que imprime só a comanda (`#area-impressao` em `index.css`).
+- **Dashboard** — pedidos de hoje, faturamento do dia (só pagamentos confirmados) e pedidos
+  aguardando ação (novos, aguardando Pix, para devolver, Pix vencido).
+- **Configurações da loja** (`/admin/loja`) — chave Pix (validada como na API), nome e cidade
+  do recebedor, WhatsApp (celular), cidade de entrega, entrega on/off, taxa, mínimo e
+  horários por dia. Depois de salvar mostra o Pix de teste de R$ 0,01 (QR + copiar). Sem Pix,
+  o topo do painel avisa "A loja ainda não recebe pedidos: configure o Pix".
+- **Produtos** — tabela/grid com busca por descrição, filtro por categoria e status; formulário
+  com todos os campos da entidade; toggle ativar/inativar e botão **"Esgotado"** de um toque
+  (`PATCH /produtos/{id}/esgotado`, separado do ativo).
 - **Categorias** — CRUD equivalente (nome, descrição, imagem, ativa/inativa).
 
 ---
@@ -96,7 +122,7 @@ src/
   context/        AuthContext, CarrinhoContext, NotificationContext, ToastContext
   features/       Telas organizadas por feature
     auth/  dashboard/  catalogo/  carrinho/  checkout/  pontos/  pedidos/  notificacoes/  admin/
-  hooks/          useLoja (status da loja) e useRevalidarCarrinho
+  hooks/          useLoja, useRevalidarCarrinho, usePrevia, useSomPedidos e useWakeLock
   lib/            Helpers (formatação BRL/data, máscaras, extração de erro)
   routes/         Proteção de rotas (ProtectedRoute / PublicOnlyRoute)
   types/          Tipos TypeScript do domínio (Produto, Categoria, Pedido, …)
@@ -121,7 +147,8 @@ Três objetos nesse arquivo:
 | --- | --- | --- | --- |
 | Auth, Perfil, Categorias, Produtos | ✅ | API real | mock |
 | Loja e cardápio | ✅ | API real (`GET /loja`, `GET /cardapio`, sem login) | mock (loja sempre aberta) |
-| Pedidos | ✅ | API real | mock |
+| Pedidos (cliente e painel da loja) | ✅ | API real | mock (versão simplificada das regras) |
+| Configurações da loja | ✅ | API real (`/admin/loja`) | mock (com um Pix de exemplo) |
 | Pontos (saldo e extrato) | ✅ | API real | mock |
 | Resgate de pontos | ❌ | **"Em breve"**, sem chamar mock | mock |
 | Endereços (cadastro) | ❌ | **escondido:** fora do menu do usuário; a rota cai no 404. No checkout o endereço é digitado | mock |
