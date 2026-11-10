@@ -69,4 +69,21 @@ test.describe('Modo demonstração (VITE_USE_MOCK=true)', () => {
     await expect(page.getByRole('button', { name: /Resgatar|Faltam|Esgotado/ }).first()).toBeVisible();
     await expect(page.locator('ul li').first()).toBeVisible();
   });
+
+  test('pedido completo no mock: carrinho, checkout e tela do Pix', async ({ page }) => {
+    const chamadas = contarChamadasApi(page);
+    await entrar(page, 'cliente@cremoso.com', 'Senha@123');
+    await page.goto('/catalogo');
+    await page.getByRole('button', { name: 'Adicionar Sorvete de Morango (500ml) ao carrinho' }).click();
+    // Produto com estoque zerado no seed do mock aparece esgotado.
+    await expect(page.getByRole('button', { name: 'Milkshake de Baunilha (400ml) esgotado' })).toBeDisabled();
+
+    await page.goto('/checkout');
+    await page.getByRole('button', { name: /Fazer pedido/ }).click();
+
+    await expect(page).toHaveURL(/\/pedidos\/\d+$/);
+    await expect(page.getByRole('img', { name: 'QR Code do Pix' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toBeVisible();
+    expect(chamadas).toEqual([]);
+  });
 });

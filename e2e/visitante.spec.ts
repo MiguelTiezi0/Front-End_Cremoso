@@ -17,10 +17,15 @@ async function preencherCadastro(
 }
 
 test.describe('Visitante', () => {
-  test('catálogo sem login redireciona para o login', async ({ page, obs }) => {
-    // O front não tem catálogo público: todas as rotas com produtos exigem login.
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login$/);
+  test('catálogo é público; as telas da conta pedem login', async ({ page, obs }) => {
+    // Entrega 2: cardápio, produto e carrinho abrem sem login (o login fica no checkout).
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/catalogo$/);
+    await expect(page.getByRole('heading', { name: 'Catálogo' })).toBeVisible();
+    for (const rota of ['/dashboard', '/pedidos', '/pontos', '/checkout']) {
+      await page.goto(rota);
+      await expect(page, rota).toHaveURL(/\/login$/);
+    }
     expect(obs.httpErrors).toEqual([]);
   });
 

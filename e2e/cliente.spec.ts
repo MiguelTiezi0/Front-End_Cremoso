@@ -31,7 +31,9 @@ test.describe('Cliente', () => {
 
     await expect(page.getByText('Olá, Cliente')).toBeVisible();
     await expect(page.getByText('Saldo de pontos')).toBeVisible();
-    await expect(page.getByText('0 pts', { exact: true })).toBeVisible();
+    // Saldo zero: explica como ganhar em vez de "0 pts".
+    await expect(page.getByText('Você ganha pontos a cada pedido concluído')).toBeVisible();
+    await expect(page.getByText('0 pts', { exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Menu do usuário' }).click();
     await expect(page.getByText(CLIENTE.email)).toBeVisible();
   });
@@ -182,13 +184,13 @@ test.describe('Cliente', () => {
     const card = page.locator('.card').filter({ has: page.getByRole('heading', { name: `Card Nulo ${RUN}` }) });
 
     await expect(card).toContainText('R$ 9,50');
+    // O cardápio público não traz preço em pontos (o resgate ainda não existe).
     await expect(card.getByTitle('Pontos ganhos na compra')).toHaveText('—');
-    await expect(card.getByTitle('Preço em pontos')).toHaveText('—');
     await expect(card.getByTestId('imagem-placeholder')).toBeVisible();
     await expect(card).not.toContainText(/null|NaN|undefined/);
   });
 
-  test('sem backend: Pedidos, Endereços e Notificações ficam fora do menu e das rotas', async ({
+  test('com backend de pedidos: Pedidos aparece; Endereços e Notificações seguem escondidos', async ({
     page,
   }) => {
     // "Nem mock nem tela de erro": o código do mock não pode nem ser carregado.
@@ -202,21 +204,21 @@ test.describe('Cliente', () => {
     const nav = page.getByRole('navigation').first();
     await expect(nav.getByRole('link', { name: 'Catálogo' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Pontos' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Pedidos' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Pedidos' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Notificações/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Menu do usuário' }).click();
     await expect(page.getByRole('link', { name: 'Meu perfil' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Meus pedidos' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Endereços' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Meus pedidos' })).toHaveCount(0);
 
-    // Dashboard sem o card de último pedido; perfil sem histórico
-    await expect(page.getByText(/Último pedido/)).toHaveCount(0);
+    // Pedidos e histórico do perfil vêm da API
+    await page.goto('/pedidos');
+    await expect(page.getByRole('heading', { name: 'Meus pedidos' })).toBeVisible();
     await page.goto('/perfil');
-    await expect(page.getByRole('heading', { name: 'Meu perfil' })).toBeVisible();
-    await expect(page.getByText('Histórico de pedidos')).toHaveCount(0);
+    await expect(page.getByText('Histórico de pedidos')).toBeVisible();
 
-    // Rotas diretas caem no 404
-    for (const rota of ['/pedidos', '/pedidos/1001', '/enderecos', '/notificacoes']) {
+    // Módulos sem backend: rota direta cai no 404
+    for (const rota of ['/enderecos', '/notificacoes']) {
       await page.goto(rota);
       await expect(page.getByText('Ops! Essa página derreteu.'), rota).toBeVisible();
     }
@@ -225,25 +227,18 @@ test.describe('Cliente', () => {
     expect(carregouMock, 'módulos do mock carregados').toEqual([]);
   });
 
-  test('sem backend de pontos: saldo real de /auth/me e extrato/resgate "Em breve"', async ({
-    page,
-    request,
-  }) => {
+  test('pontos: saldo e extrato da API; o resgate continua "Em breve"', async ({ page, request }) => {
     const carregouMock: string[] = [];
     page.on('request', (r) => ehModuloDoMock(r.url()) && carregouMock.push(r.url()));
     const chamouPontos: string[] = [];
     page.on('request', (r) => r.url().startsWith(`${API_URL}/pontos`) && chamouPontos.push(r.url()));
 
-    // A API ainda não credita pontos (todo cliente tem 0): simulamos só o saldoPontos de
-    // /auth/me para provar que a tela mostra o valor que vem da API.
     const email = `pontos${RUN}@teste.com`;
     await request.post(`${API_URL}/auth/register`, {
       data: { nome: 'Pontos Real', email, telefone: '11933334444', senha: 'Senha123' },
     });
-    await page.route(`${API_URL}/auth/me`, async (route) => {
-      const res = await route.fetch();
-      await route.fulfill({ response: res, json: { ...(await res.json()), saldoPontos: 500 } });
-    });
+    // Conta nova tem 0 pontos: simulamos só o saldo para provar que a tela usa a API.
+    await page.route(`${API_URL}/pontos/saldo`, (route) => route.fulfill({ json: { saldo: 500 } }));
 
     await loginUI(page, email, 'Senha123');
     await expect(page).toHaveURL(/\/dashboard$/);
@@ -251,12 +246,15 @@ test.describe('Cliente', () => {
 
     await expect(page.getByText('Seu saldo atual')).toBeVisible();
     await expect(page.getByText('500 pts', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Em breve' })).toHaveCount(2);
+    await expect(page.getByRole('heading', { name: 'Sem movimentações' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Em breve' })).toHaveCount(1); // só o resgate
     await expect(page.getByRole('button', { name: 'Resgatar' })).toHaveCount(0);
 
     await page.waitForLoadState('networkidle');
     expect(carregouMock, 'módulos do mock carregados').toEqual([]);
-    expect(chamouPontos, 'chamadas a /api/pontos').toEqual([]);
+    // (em dev o StrictMode do React roda o efeito duas vezes: compara o conjunto)
+    const rotas = [...new Set(chamouPontos.map((u) => u.replace(API_URL, '')))].sort();
+    expect(rotas).toEqual(['/pontos/extrato', '/pontos/saldo']);
   });
 
   test('navegar como cliente não gera erros de API nem exceções JS', async ({ page, obs }) => {

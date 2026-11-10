@@ -114,3 +114,53 @@ export async function apiCriarProduto(
 /** Toast (role=status) com o texto informado. */
 export const toast = (page: Page, texto: string | RegExp) =>
   page.getByRole('status').filter({ hasText: texto });
+
+// --- Entrega 2: pedidos ----------------------------------------------------------------
+
+const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+/** Conta nova de cliente (pedidos e pontos sem interferir nas contas do seed). */
+export async function apiNovoCliente(request: APIRequestContext, prefixo: string) {
+  const email = `${prefixo}${RUN}${Math.floor(Math.random() * 1e4)}@teste.com`;
+  const senha = 'Senha123';
+  const res = await request.post(`${API_URL}/auth/register`, {
+    data: { nome: `Cliente ${prefixo}`, email, telefone: '11987654321', senha },
+  });
+  expect(res.ok(), `cadastro de ${email}`).toBeTruthy();
+  return { email, senha };
+}
+
+/** Painel (ADMIN): muda o status do pedido. */
+export async function apiStatus(
+  request: APIRequestContext,
+  token: string,
+  id: number,
+  statusAtual: string,
+  para: string,
+  motivo?: string,
+) {
+  const res = await request.post(`${API_URL}/admin/pedidos/${id}/status`, {
+    headers: auth(token),
+    data: { para, statusAtual, motivo },
+  });
+  expect(res.status(), `${statusAtual} → ${para}`).toBe(200);
+  return res.json();
+}
+
+/** Painel (ADMIN): CONFIRMADO, PENDENTE ou DEVOLVIDO. */
+export async function apiPagamento(request: APIRequestContext, token: string, id: number, status: string) {
+  const res = await request.post(`${API_URL}/admin/pedidos/${id}/pagamento`, {
+    headers: auth(token),
+    data: { status },
+  });
+  expect(res.status(), `pagamento → ${status}`).toBe(200);
+  return res.json();
+}
+
+export async function apiEsgotado(request: APIRequestContext, token: string, id: number, esgotado: boolean) {
+  const res = await request.patch(`${API_URL}/produtos/${id}/esgotado`, {
+    headers: auth(token),
+    data: { esgotado },
+  });
+  expect(res.status()).toBe(200);
+}
