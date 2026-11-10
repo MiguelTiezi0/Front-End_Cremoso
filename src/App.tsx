@@ -23,6 +23,8 @@ const PedidoDetalhePage = lazy(() => import('./features/pedidos/PedidoDetalhePag
 const NotificacoesPage = lazy(() => import('./features/notificacoes/NotificacoesPage'));
 const ProdutosPage = lazy(() => import('./features/admin/ProdutosPage'));
 const CategoriasPage = lazy(() => import('./features/admin/CategoriasPage'));
+const PainelPedidosPage = lazy(() => import('./features/admin/pedidos/PainelPedidosPage'));
+const LojaConfigPage = lazy(() => import('./features/admin/LojaConfigPage'));
 const NotFoundPage = lazy(() => import('./features/NotFoundPage'));
 
 export default function App() {
@@ -73,8 +75,10 @@ export default function App() {
         {/* Rotas protegidas de administrador */}
         <Route element={<ProtectedRoute adminOnly />}>
           <Route element={<AppLayout />}>
+            <Route path="/admin/pedidos" element={<PainelPedidosPage />} />
             <Route path="/admin/produtos" element={<ProdutosPage />} />
             <Route path="/admin/categorias" element={<CategoriasPage />} />
+            <Route path="/admin/loja" element={<LojaConfigPage />} />
           </Route>
         </Route>
 

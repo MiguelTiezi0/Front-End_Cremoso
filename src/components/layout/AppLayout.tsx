@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
+  ClipboardList,
   Gift,
   IceCreamCone,
   LayoutDashboard,
   Menu,
   LogIn,
   Package,
+  Settings,
   ShoppingBag,
   ShoppingCart,
   Tags,
@@ -15,6 +17,7 @@ import {
 import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
+import { AvisoLojaSemPix } from './AvisoLojaSemPix';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 import { UserMenu } from './UserMenu';
@@ -34,8 +37,10 @@ const NAV: NavItem[] = [
   { to: '/catalogo', label: 'Catálogo', icon: IceCreamCone, clienteOnly: true, publico: true },
   { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, clienteOnly: true, disponivel: DISPONIVEL.pedidos },
   { to: '/pontos', label: 'Pontos', icon: Gift, clienteOnly: true },
+  { to: '/admin/pedidos', label: 'Pedidos', icon: ClipboardList, adminOnly: true },
   { to: '/admin/produtos', label: 'Produtos', icon: Package, adminOnly: true },
   { to: '/admin/categorias', label: 'Categorias', icon: Tags, adminOnly: true },
+  { to: '/admin/loja', label: 'Loja', icon: Settings, adminOnly: true },
 ];
 
 export function AppLayout() {
@@ -55,7 +60,7 @@ export function AppLayout() {
       <header className="sticky top-0 z-30 border-b border-cream-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <button
-            className="rounded-full p-2 text-slate-500 hover:bg-cream-100 md:hidden"
+            className="rounded-full p-2 text-slate-500 hover:bg-cream-100 lg:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Abrir menu"
           >
@@ -66,7 +71,7 @@ export function AppLayout() {
             <Logo />
           </NavLink>
 
-          <nav className="ml-6 hidden items-center gap-1 md:flex">
+          <nav className="ml-6 hidden items-center gap-1 lg:flex">
             {items.map((item) => (
               <NavItemLink key={item.to} item={item} />
             ))}
@@ -101,13 +106,15 @@ export function AppLayout() {
 
         {/* Menu mobile */}
         {mobileOpen && (
-          <nav className="flex flex-col gap-1 border-t border-cream-200 px-4 py-3 md:hidden">
+          <nav className="flex flex-col gap-1 border-t border-cream-200 px-4 py-3 lg:hidden">
             {items.map((item) => (
               <NavItemLink key={item.to} item={item} onClick={() => setMobileOpen(false)} />
             ))}
           </nav>
         )}
       </header>
+
+      {isAdmin && <AvisoLojaSemPix />}
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />

@@ -590,11 +590,13 @@ export const mockApi = {
     db.pedidos.forEach(expirarPix);
     const hoje = diaLocal(new Date().toISOString());
     return db.pedidos
-      .filter((p) =>
-        filtro.status?.length
-          ? filtro.status.includes(p.status) && (!filtro.data || diaLocal(p.data) === filtro.data)
-          : ATIVOS.includes(p.status) || diaLocal(p.data) === hoje,
-      )
+      .filter((p) => {
+        // Igual à API: sem status, só os ativos; sem data, os finalizados só de hoje.
+        const status = filtro.status?.length ? filtro.status : ATIVOS;
+        if (!status.includes(p.status)) return false;
+        if (filtro.data) return diaLocal(p.data) === filtro.data;
+        return ATIVOS.includes(p.status) || diaLocal(p.data) === hoje;
+      })
       .sort((a, b) => a.data.localeCompare(b.data))
       .map(paraPainel);
   },

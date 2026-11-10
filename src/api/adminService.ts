@@ -13,8 +13,19 @@ import { mock } from './mock/carregar';
 // Painel da loja (ADMIN): fila de pedidos, mudanças de status e pagamento, resumo do dia e
 // configurações. As regras ficam todas na API; a tela só mostra o que ela permite.
 
+// Fila do painel: com todos os status e sem data, a API devolve os ativos de qualquer dia e
+// os concluídos e cancelados de hoje. (Sem status, ela devolve só os ativos.)
+export const FILA_DO_PAINEL: StatusPedido[] = [
+  'RECEBIDO',
+  'ACEITO',
+  'EM_PREPARO',
+  'PRONTO',
+  'SAIU_PARA_ENTREGA',
+  'CONCLUIDO',
+  'CANCELADO',
+];
+
 export const adminPedidoService = {
-  // Sem filtro: todos os pedidos ativos (mesmo de ontem) e os finalizados de hoje.
   async list(filtro: { status?: StatusPedido[]; data?: string } = {}): Promise<PedidoAdmin[]> {
     if (MOCK.pedidos) return (await mock()).adminListPedidos(filtro);
     const params: Record<string, string> = {};

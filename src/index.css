@@ -57,3 +57,45 @@
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
 }
+
+/* Comanda do painel da loja (src/features/admin/pedidos/Comanda.tsx): fora da tela no uso
+   normal; na impressão, só ela aparece. */
+#area-impressao {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 4mm;
+  }
+  body.imprimindo {
+    background: #fff;
+  }
+  body.imprimindo #root,
+  body.imprimindo [role='status'] {
+    display: none !important;
+  }
+  body.imprimindo #area-impressao {
+    display: block;
+    width: 72mm;
+    font: 12px/1.35 'Courier New', monospace;
+    color: #000;
+  }
+  #area-impressao hr {
+    border: 0;
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+  #area-impressao .comanda-titulo {
+    text-align: center;
+    font-weight: bold;
+  }
+  #area-impressao .comanda-grande {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  #area-impressao .comanda-obs {
+    font-weight: bold;
+    padding-left: 8px;
+  }
+}

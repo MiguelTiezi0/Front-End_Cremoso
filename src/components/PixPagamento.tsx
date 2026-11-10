@@ -4,6 +4,7 @@ import type { PixPedido } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { MSG_PIX_EXPIRADO } from '@/lib/statusPedido';
 import { formatBRL } from '@/lib/format';
+import { copiar } from '@/lib/copiar';
 import { QrCodePix } from './QrCodePix';
 
 const restante = (expiraEm: string) => Math.max(0, Date.parse(expiraEm) - Date.now());
@@ -12,29 +13,6 @@ const mmss = (ms: number) => {
   const s = Math.ceil(ms / 1000);
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
-
-// Copia para a área de transferência. Sem contexto seguro (http na rede local) o
-// navigator.clipboard não existe: cai no execCommand com um textarea temporário.
-async function copiar(texto: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(texto);
-      return true;
-    }
-  } catch {
-    /* tenta o caminho antigo */
-  }
-  const area = document.createElement('textarea');
-  area.value = texto;
-  area.setAttribute('readonly', '');
-  area.style.position = 'fixed';
-  area.style.opacity = '0';
-  document.body.appendChild(area);
-  area.select();
-  const ok = document.execCommand('copy');
-  document.body.removeChild(area);
-  return ok;
-}
 
 // Bloco do Pix pendente: QR Code, copia e cola e contagem regressiva dos 15 minutos.
 // `onExpirou` pede ao pai para buscar o pedido na hora (a API cancela o pedido vencido).
