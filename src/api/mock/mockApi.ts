@@ -5,31 +5,41 @@ import type {
   Endereco,
   EnderecoInput,
   Cardapio,
+  ItemRecusado,
   Loja,
+  LojaConfig,
+  LojaConfigInput,
   LoginPayload,
   MovimentoPontos,
   Notificacao,
   NovoPedido,
   Pedido,
+  PedidoAdmin,
   PedidoResumo,
   PerfilUpdatePayload,
+  PreviaPedido,
+  PreviaPedidoInput,
   Produto,
   ProdutoInput,
   RegisterPayload,
+  ResumoDia,
+  StatusPagamento,
+  StatusPedido,
   User,
 } from '@/types';
 import { MOCK } from '@/config/mock';
 import { db, nextId, persist } from './db';
 import { MockUser, seedLoja } from './seed';
+import { pixExpirado } from '@/lib/statusPedido';
 
 // Simula latência de rede.
 const delay = (ms = 450) => new Promise((r) => setTimeout(r, ms));
 
 // Erro no formato aproximado do que o Axios entregaria (para o tratamento de erros
 // no front-end funcionar igual com mock e com API real).
-function apiError(status: number, message: string): never {
+function apiError(status: number, message: string, codigo?: string): never {
   const err = new Error(message) as Error & { response?: unknown };
-  err.response = { status, data: { message } };
+  err.response = { status, data: { message, codigo } };
   throw err;
 }
 
@@ -54,7 +64,7 @@ function movimentosDe(user: User): MovimentoPontos[] {
 
 const centavos = (v: number) => Math.round(v * 100) / 100;
 
-function cancelar(pedido: Pedido, por: 'CLIENTE' | 'SISTEMA', motivo: string, em: string) {
+function cancelar(pedido: Pedido, por: 'CLIENTE' | 'LOJA' | 'SISTEMA', motivo: string, em: string) {
   pedido.status = 'CANCELADO';
   pedido.canceladoPor = por;
   pedido.motivoCancelamento = motivo;
@@ -70,6 +80,60 @@ function expirarPix(pedido: Pedido) {
   if (pedido.status !== 'RECEBIDO' && pedido.status !== 'ACEITO') return;
   cancelar(pedido, 'SISTEMA', 'PIX_EXPIRADO', expira);
   persist();
+}
+
+// --- Loja e painel (versão simplificada das regras da API) ---------------------------------
+
+// Configuração da loja: a salva pelo painel ou a de exemplo (com um Pix de mentira).
+const lojaConfig = (): LojaConfigInput =>
+  db.lojaConfig ?? {
+    nome: seedLoja.nome,
+    cidade: seedLoja.cidade ?? 'Taquaritinga',
+    pixChave: 'demonstracao@cremoso.com',
+    pixNomeRecebedor: 'CREMOSO SORVETES',
+    pixCidade: 'TAQUARITINGA',
+    whatsapp: seedLoja.whatsapp,
+    entregaAtiva: seedLoja.entregaAtiva,
+    taxaEntrega: seedLoja.taxaEntrega,
+    pedidoMinimo: seedLoja.pedidoMinimo,
+    horarios: seedLoja.horarios,
+  };
+
+const pixConfigurado = (c: LojaConfigInput) => !!(c.pixChave && c.pixNomeRecebedor && c.pixCidade);
+
+const TRANSICOES: Record<StatusPedido, StatusPedido[]> = {
+  RECEBIDO: ['ACEITO', 'CANCELADO'],
+  ACEITO: ['EM_PREPARO', 'CANCELADO'],
+  EM_PREPARO: ['PRONTO', 'SAIU_PARA_ENTREGA', 'CANCELADO'],
+  PRONTO: ['CONCLUIDO', 'CANCELADO'],
+  SAIU_PARA_ENTREGA: ['CONCLUIDO', 'CANCELADO'],
+  CONCLUIDO: ['CANCELADO'],
+  CANCELADO: [],
+};
+const ATIVOS: StatusPedido[] = ['RECEBIDO', 'ACEITO', 'EM_PREPARO', 'PRONTO', 'SAIU_PARA_ENTREGA'];
+const JANELA_PIX_TARDIO_MS = 2 * 60 * 60_000;
+const diaLocal = (iso: string) => new Date(iso).toLocaleDateString('en-CA');
+
+// Campos calculados do painel (prazo do Pix vencido e aviso), como a API devolve.
+function paraPainel(p: PedidoAdmin): PedidoAdmin {
+  const prazo =
+    pixExpirado(p) && p.statusPagamento === 'PENDENTE' && p.pixExpiraEm
+      ? new Date(Date.parse(p.pixExpiraEm) + JANELA_PIX_TARDIO_MS).toISOString()
+      : null;
+  let aviso: string | null = null;
+  if (p.status === 'CANCELADO' && p.statusPagamento === 'CONFIRMADO') {
+    aviso = 'Pagamento confirmado: devolva o valor ao cliente e marque como DEVOLVIDO.';
+  } else if (prazo) {
+    aviso = 'Pix vencido: se o cliente pagou, confirme o pagamento para retomar o pedido.';
+  }
+  return structuredClone({ ...p, confirmarPagamentoAte: prazo, aviso });
+}
+
+function pedidoDoPainel(id: number): PedidoAdmin {
+  const pedido = db.pedidos.find((p) => p.id === id);
+  if (!pedido) apiError(404, 'Pedido não encontrado.');
+  expirarPix(pedido);
+  return pedido;
 }
 
 const fakeToken = (u: MockUser) =>
@@ -225,6 +289,16 @@ export const mockApi = {
     return structuredClone(produto);
   },
 
+  async marcarEsgotado(id: number, esgotado: boolean): Promise<Produto> {
+    await delay(200);
+    const produto = db.produtos.find((p) => p.id === id);
+    if (!produto) apiError(404, 'Produto não encontrado.');
+    produto.esgotado = esgotado;
+    produto.dataAtualizacao = new Date().toISOString();
+    persist();
+    return structuredClone(produto);
+  },
+
   async deleteProduto(id: number): Promise<void> {
     await delay();
     db.produtos = db.produtos.filter((p) => p.id !== id);
@@ -312,7 +386,8 @@ export const mockApi = {
     const repetido = db.pedidos.find((p) => p.id === db.chavesPedido?.[chave]);
     if (repetido) return structuredClone(repetido);
 
-    const itens = novo.itens.map(({ produtoId, quantidade }) => {
+    const loja = lojaConfig();
+    const itens = novo.itens.map(({ produtoId, quantidade, observacao }) => {
       const produto = db.produtos.find((p) => p.id === produtoId && p.ativo);
       if (!produto || produto.quantidade <= 0 || produto.esgotado) {
         apiError(409, 'Um produto do carrinho não está mais disponível.');
@@ -326,16 +401,18 @@ export const mockApi = {
         valorUnitario: produto.preco,
         subtotal: centavos(produto.preco * quantidade),
         pontos,
+        observacao: observacao?.trim() || null,
       };
     });
     const subtotal = centavos(itens.reduce((s, i) => s + i.subtotal, 0));
     const entrega = novo.tipoEntrega === 'ENTREGA';
-    if (entrega && seedLoja.pedidoMinimo !== null && subtotal < seedLoja.pedidoMinimo) {
+    if (entrega && loja.pedidoMinimo !== null && subtotal < loja.pedidoMinimo) {
       apiError(409, 'O pedido mínimo para entrega não foi atingido.');
     }
-    const frete = entrega ? seedLoja.taxaEntrega : 0;
+    const frete = entrega ? loja.taxaEntrega : 0;
     const agora = new Date();
-    const pedido: Pedido = {
+    const expiraEm = new Date(agora.getTime() + 15 * 60_000).toISOString();
+    const pedido: PedidoAdmin = {
       id: nextId(),
       data: agora.toISOString(),
       status: 'RECEBIDO',
@@ -352,7 +429,7 @@ export const mockApi = {
         // Código de mentira: o modo demonstração não gera Pix de verdade.
         copiaECola: `00020126580014BR.GOV.BCB.PIX0136MODO-DEMONSTRACAO-SEM-VALOR5204000053039865802BR5907CREMOSO6012TAQUARITINGA6304ABCD`,
         valor: centavos(subtotal + frete),
-        expiraEm: new Date(agora.getTime() + 15 * 60_000).toISOString(),
+        expiraEm,
       },
       endereco:
         entrega && novo.endereco
@@ -362,7 +439,7 @@ export const mockApi = {
               numero: novo.endereco.numero,
               complemento: novo.endereco.complemento ?? null,
               bairro: novo.endereco.bairro,
-              cidade: seedLoja.cidade ?? '',
+              cidade: loja.cidade,
               referencia: novo.endereco.referencia ?? null,
             }
           : null,
@@ -371,11 +448,81 @@ export const mockApi = {
       motivoCancelamento: null,
       canceladoPor: null,
       historico: [{ status: 'RECEBIDO', em: agora.toISOString() }],
+      cliente: { id: 1, nome: 'Ana Cliente', telefone: '(11) 98888-1111' },
+      pixExpiraEm: expiraEm,
+      pagamentoConfirmadoEm: null,
+      confirmarPagamentoAte: null,
+      aviso: null,
     };
     db.pedidos.push(pedido);
     db.chavesPedido[chave] = pedido.id;
     persist();
     return structuredClone(pedido);
+  },
+
+  async previaPedido(input: PreviaPedidoInput): Promise<PreviaPedido> {
+    await delay(200);
+    const loja = lojaConfig();
+    const entrega = input.tipoEntrega === 'ENTREGA';
+    const recusados: ItemRecusado[] = [];
+    const itens: PreviaPedido['itens'] = [];
+    for (const { produtoId, quantidade, observacao, precoExibido } of input.itens) {
+      const produto = db.produtos.find((p) => p.id === produtoId);
+      const motivo = !produto
+        ? 'NAO_ENCONTRADO'
+        : !produto.ativo
+          ? 'INATIVO'
+          : produto.esgotado || produto.quantidade <= 0
+            ? 'ESGOTADO'
+            : null;
+      if (motivo || !produto) {
+        recusados.push({
+          produtoId,
+          descricao: produto?.descricao ?? null,
+          motivo: motivo ?? 'NAO_ENCONTRADO',
+          precoExibido: precoExibido ?? null,
+          precoAtual: null,
+        });
+        continue;
+      }
+      if (precoExibido !== undefined && centavos(precoExibido) !== centavos(produto.preco)) {
+        recusados.push({
+          produtoId,
+          descricao: produto.descricao,
+          motivo: 'PRECO_MUDOU',
+          precoExibido,
+          precoAtual: produto.preco,
+        });
+      }
+      itens.push({
+        produtoId,
+        descricao: produto.descricao,
+        quantidade,
+        valorUnitario: produto.preco,
+        subtotal: centavos(produto.preco * quantidade),
+        pontos: (produto.ganhoDePontos ?? 0) * quantidade,
+        observacao: observacao?.trim() || null,
+      });
+    }
+    const subtotal = centavos(itens.reduce((s, i) => s + i.subtotal, 0));
+    const frete = entrega ? loja.taxaEntrega : 0;
+    const falta = entrega && loja.pedidoMinimo !== null ? Math.max(0, centavos(loja.pedidoMinimo - subtotal)) : 0;
+    const aberta = pixConfigurado(loja);
+    return {
+      tipoEntrega: input.tipoEntrega,
+      itens,
+      recusados,
+      subtotal,
+      frete,
+      total: centavos(subtotal + frete),
+      pontos: itens.reduce((s, i) => s + i.pontos, 0),
+      pedidoMinimo: loja.pedidoMinimo,
+      atingeMinimo: falta === 0,
+      faltaParaMinimo: falta,
+      lojaAberta: aberta,
+      motivoFechada: aberta ? null : 'PAGAMENTO_NAO_CONFIGURADO',
+      podeFinalizar: aberta && itens.length > 0 && recusados.length === 0 && falta === 0,
+    };
   },
 
   async cancelarPedido(id: number): Promise<Pedido> {
@@ -395,9 +542,148 @@ export const mockApi = {
   // Loja e cardápio
   // -------------------------------------------------------------------------
 
+  // Sempre dentro do horário no modo demonstração; fechada só sem Pix configurado.
   async getLoja(): Promise<Loja> {
     await delay(150);
-    return structuredClone(seedLoja);
+    const c = lojaConfig();
+    const aberta = pixConfigurado(c);
+    return structuredClone({
+      ...seedLoja,
+      nome: c.nome,
+      cidade: c.cidade,
+      aberta,
+      motivoFechada: aberta ? null : 'PAGAMENTO_NAO_CONFIGURADO',
+      horarios: c.horarios,
+      entregaAtiva: c.entregaAtiva,
+      taxaEntrega: c.taxaEntrega,
+      pedidoMinimo: c.pedidoMinimo,
+      formasPagamento: aberta ? ['PIX'] : [],
+      whatsapp: c.whatsapp,
+    });
+  },
+
+  async adminGetLoja(): Promise<LojaConfig> {
+    await delay(200);
+    const c = lojaConfig();
+    return structuredClone({
+      ...c,
+      pausada: false,
+      pixExemplo: pixConfigurado(c) ? 'MODO-DEMONSTRACAO-PIX-DE-TESTE-SEM-VALOR' : null,
+    });
+  },
+
+  async adminSalvarLoja(input: LojaConfigInput): Promise<LojaConfig> {
+    await delay();
+    if (!input.nome.trim()) apiError(400, 'Nome da loja é obrigatório.');
+    if (!input.cidade.trim()) apiError(400, 'Cidade da loja é obrigatória (a entrega só atende esta cidade).');
+    db.lojaConfig = structuredClone(input);
+    persist();
+    return mockApi.adminGetLoja();
+  },
+
+  // -------------------------------------------------------------------------
+  // Painel: pedidos
+  // -------------------------------------------------------------------------
+
+  async adminListPedidos(filtro: { status?: StatusPedido[]; data?: string }): Promise<PedidoAdmin[]> {
+    await delay(250);
+    db.pedidos.forEach(expirarPix);
+    const hoje = diaLocal(new Date().toISOString());
+    return db.pedidos
+      .filter((p) =>
+        filtro.status?.length
+          ? filtro.status.includes(p.status) && (!filtro.data || diaLocal(p.data) === filtro.data)
+          : ATIVOS.includes(p.status) || diaLocal(p.data) === hoje,
+      )
+      .sort((a, b) => a.data.localeCompare(b.data))
+      .map(paraPainel);
+  },
+
+  async adminGetPedido(id: number): Promise<PedidoAdmin> {
+    await delay(150);
+    return paraPainel(pedidoDoPainel(id));
+  },
+
+  async adminMudarStatus(
+    id: number,
+    statusAtual: StatusPedido,
+    para: StatusPedido,
+    motivo?: string,
+  ): Promise<PedidoAdmin> {
+    await delay();
+    const p = pedidoDoPainel(id);
+    if (p.status !== statusAtual) {
+      apiError(409, `O pedido #${id} já mudou de status. Atualize a tela.`, 'STATUS_DESATUALIZADO');
+    }
+    if (!TRANSICOES[p.status].includes(para)) apiError(409, 'Mudança de status não permitida.', 'TRANSICAO_INVALIDA');
+    if (para === 'PRONTO' && p.tipoEntrega !== 'RETIRADA') apiError(409, 'Pedido de entrega: use Saiu para entrega.');
+    if (para === 'SAIU_PARA_ENTREGA' && p.tipoEntrega !== 'ENTREGA') apiError(409, 'Pedido de retirada: use Pronto.');
+    if ((para === 'EM_PREPARO' || para === 'CONCLUIDO') && p.statusPagamento !== 'CONFIRMADO') {
+      apiError(409, 'Confirme o pagamento do Pix antes de iniciar o preparo.', 'PAGAMENTO_PENDENTE');
+    }
+    const agora = new Date().toISOString();
+    if (para === 'CANCELADO') {
+      if (!motivo?.trim()) apiError(400, 'Motivo do cancelamento é obrigatório.');
+      cancelar(p, 'LOJA', motivo.trim(), agora);
+    } else {
+      p.status = para;
+      p.podeCancelar = para === 'RECEBIDO' || para === 'ACEITO';
+      if (para === 'CONCLUIDO') p.pontosCreditados = true;
+      p.historico.push({ status: para, em: agora });
+    }
+    persist();
+    return paraPainel(p);
+  },
+
+  async adminPagamento(id: number, status: StatusPagamento): Promise<PedidoAdmin> {
+    await delay();
+    const p = pedidoDoPainel(id);
+    if (p.statusPagamento === status) return paraPainel(p);
+    const agora = new Date().toISOString();
+    if (status === 'CONFIRMADO') {
+      if (p.statusPagamento === 'DEVOLVIDO') apiError(409, 'Este pagamento já foi devolvido.');
+      const prazo = paraPainel(p).confirmarPagamentoAte;
+      if (pixExpirado(p)) {
+        if (!prazo || Date.now() >= Date.parse(prazo)) {
+          apiError(409, 'O prazo de 2 horas para confirmar o pagamento acabou.', 'PEDIDO_EXPIRADO');
+        }
+        // Pix pago no limite: o pedido volta ao status de antes do cancelamento.
+        const volta = p.historico[p.historico.length - 2]?.status ?? 'RECEBIDO';
+        p.status = volta;
+        p.canceladoPor = null;
+        p.motivoCancelamento = null;
+        p.podeCancelar = true;
+        p.historico.push({ status: volta, em: agora });
+      } else if (p.status === 'CANCELADO') {
+        apiError(409, 'O pedido está cancelado: não é possível confirmar o pagamento.');
+      }
+      p.pix = null;
+      p.pagamentoConfirmadoEm = agora;
+    } else if (status === 'DEVOLVIDO') {
+      if (p.status !== 'CANCELADO') apiError(409, 'Só dá para devolver o pagamento de um pedido cancelado.');
+    } else {
+      apiError(409, 'Desfazer a confirmação não existe no modo demonstração.');
+    }
+    p.statusPagamento = status;
+    persist();
+    return paraPainel(p);
+  },
+
+  async adminResumo(): Promise<ResumoDia> {
+    await delay(200);
+    const hoje = diaLocal(new Date().toISOString());
+    const doDia = db.pedidos.filter((p) => diaLocal(p.data) === hoje);
+    const validos = doDia.filter((p) => p.status !== 'CANCELADO');
+    return {
+      data: hoje,
+      pedidos: validos.length,
+      concluidos: doDia.filter((p) => p.status === 'CONCLUIDO').length,
+      cancelados: doDia.length - validos.length,
+      totalConfirmado: centavos(
+        validos.filter((p) => p.statusPagamento === 'CONFIRMADO').reduce((s, p) => s + p.total, 0),
+      ),
+      pixPendentes: doDia.filter((p) => ATIVOS.includes(p.status) && p.statusPagamento === 'PENDENTE').length,
+    };
   },
 
   async getCardapio(): Promise<Cardapio> {

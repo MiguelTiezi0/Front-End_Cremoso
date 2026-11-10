@@ -58,6 +58,12 @@ export const produtoService = {
     const { data } = await api.patch<Produto>(`/produtos/${id}/ativo`);
     return data;
   },
+  // "Acabou hoje": some do pedido sem desativar o produto (separado do ativo).
+  async marcarEsgotado(id: number, esgotado: boolean): Promise<Produto> {
+    if (MOCK.produtos) return (await mock()).marcarEsgotado(id, esgotado);
+    const { data } = await api.patch<Produto>(`/produtos/${id}/esgotado`, { esgotado });
+    return data;
+  },
   async remove(id: number): Promise<void> {
     if (MOCK.produtos) return (await mock()).deleteProduto(id);
     await api.delete(`/produtos/${id}`);

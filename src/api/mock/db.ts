@@ -1,9 +1,10 @@
 import type {
   Categoria,
   Endereco,
+  LojaConfigInput,
   MovimentoPontos,
   Notificacao,
-  Pedido,
+  PedidoAdmin,
 } from '@/types';
 import {
   MockUser,
@@ -25,7 +26,8 @@ interface DbShape {
   categorias: Categoria[];
   produtos: Produto[];
   enderecos: Endereco[];
-  pedidos: Pedido[];
+  // Guardados já no formato do painel (com o cliente); a tela do cliente ignora o resto.
+  pedidos: PedidoAdmin[];
   movimentos: MovimentoPontos[]; // extrato de exemplo dos usuários do próprio mock
   // Extrato de pontos de usuários que não são do mock (modo misto: login pela API real),
   // por id do usuário. Opcional para continuar lendo bancos já salvos no localStorage.
@@ -33,9 +35,11 @@ interface DbShape {
   notificacoes: Notificacao[];
   // Idempotency-Key → id do pedido criado (reenvio devolve o mesmo pedido).
   chavesPedido?: Record<string, number>;
+  // Configurações da loja salvas pelo painel (sem isso vale o seedLoja).
+  lojaConfig?: LojaConfigInput;
 }
 
-const DB_KEY = 'cremoso.mockdb.v2';
+const DB_KEY = 'cremoso.mockdb.v3';
 
 function seedDb(): DbShape {
   return {

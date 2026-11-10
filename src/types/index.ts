@@ -182,6 +182,7 @@ export interface ItemPedido {
   valorUnitario: number;
   subtotal: number;
   pontos: number;
+  observacao: string | null; // do item ("sem calda"), até 140 caracteres
 }
 
 export interface EnderecoEntrega {
@@ -249,14 +250,96 @@ export interface EnderecoEntregaInput {
   referencia?: string;
 }
 
+export interface ItemNovoPedido {
+  produtoId: number;
+  quantidade: number;
+  observacao?: string; // até 140 caracteres
+}
+
 // POST /pedidos (preço, nome e pontos sempre vêm do banco)
 export interface NovoPedido {
   tipoEntrega: TipoEntrega;
   formaPagamento: FormaPagamento;
-  itens: { produtoId: number; quantidade: number }[];
+  itens: ItemNovoPedido[];
   endereco?: EnderecoEntregaInput;
-  observacao?: string;
+  observacao?: string; // observação geral, até 500
   totalExibido?: number; // só para a API avisar se o preço mudou
+}
+
+// POST /pedidos/previa: o que o pedido custaria agora (não grava nada).
+export interface PreviaPedidoInput {
+  tipoEntrega: TipoEntrega;
+  itens: (ItemNovoPedido & { precoExibido?: number })[];
+  cep?: string; // opcional; se vier, 8 dígitos
+}
+
+export type MotivoRecusa = 'ESGOTADO' | 'INATIVO' | 'NAO_ENCONTRADO' | 'PRECO_MUDOU';
+
+export interface ItemRecusado {
+  produtoId: number;
+  descricao: string | null;
+  motivo: MotivoRecusa; // PRECO_MUDOU entra no total pelo preço novo; os outros ficam fora
+  precoExibido: number | null;
+  precoAtual: number | null;
+}
+
+export interface PreviaPedido {
+  tipoEntrega: TipoEntrega;
+  itens: Omit<ItemPedido, 'imagemUrl'>[];
+  recusados: ItemRecusado[];
+  subtotal: number;
+  frete: number;
+  total: number;
+  pontos: number;
+  pedidoMinimo: number | null;
+  atingeMinimo: boolean;
+  faltaParaMinimo: number;
+  lojaAberta: boolean;
+  motivoFechada: MotivoLojaFechada | null;
+  podeFinalizar: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Painel da loja (ADMIN)
+// ---------------------------------------------------------------------------
+
+// GET /admin/pedidos e /admin/pedidos/{id}
+export interface PedidoAdmin extends Pedido {
+  cliente: { id: number; nome: string; telefone: string };
+  pixExpiraEm: string | null;
+  pagamentoConfirmadoEm: string | null;
+  // Pix vencido: até quando ainda dá para confirmar o pagamento e retomar o pedido.
+  confirmarPagamentoAte: string | null;
+  aviso: string | null;
+}
+
+// GET /admin/pedidos/resumo
+export interface ResumoDia {
+  data: string; // AAAA-MM-DD
+  pedidos: number; // não cancelados
+  concluidos: number;
+  cancelados: number;
+  totalConfirmado: number; // só pagamentos confirmados
+  pixPendentes: number;
+}
+
+// GET/PUT /admin/loja
+export interface LojaConfigInput {
+  nome: string;
+  cidade: string;
+  pixChave: string | null;
+  pixNomeRecebedor: string | null;
+  pixCidade: string | null;
+  whatsapp: string | null;
+  entregaAtiva: boolean;
+  taxaEntrega: number;
+  pedidoMinimo: number | null;
+  horarios: HorarioLoja[];
+}
+
+export interface LojaConfig extends LojaConfigInput {
+  pausada: boolean;
+  pixExemplo: string | null; // Pix de R$ 0,01 para testar a chave no app do banco
 }
 
 // ---------------------------------------------------------------------------

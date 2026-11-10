@@ -5,6 +5,7 @@ import type {
   MovimentoPontos,
   Notificacao,
   Pedido,
+  PedidoAdmin,
   Produto,
   User,
 } from '@/types';
@@ -162,7 +163,7 @@ export const seedEnderecos: Endereco[] = [
 ];
 
 // Pedidos de exemplo no formato da API (GET /pedidos/{id}).
-export const seedPedidos: Pedido[] = [
+const pedidosBase: Pedido[] = [
   {
     id: 1001,
     data: iso(1),
@@ -179,6 +180,7 @@ export const seedPedidos: Pedido[] = [
         valorUnitario: 24.9,
         subtotal: 49.8,
         pontos: 50,
+        observacao: null,
       },
     ],
     subtotal: 49.8,
@@ -223,6 +225,7 @@ export const seedPedidos: Pedido[] = [
         valorUnitario: 7.5,
         subtotal: 30.0,
         pontos: 32,
+        observacao: null,
       },
       {
         produtoId: 2,
@@ -232,6 +235,7 @@ export const seedPedidos: Pedido[] = [
         valorUnitario: 29.9,
         subtotal: 29.9,
         pontos: 30,
+        observacao: null,
       },
     ],
     subtotal: 59.9,
@@ -254,6 +258,16 @@ export const seedPedidos: Pedido[] = [
     ],
   },
 ];
+
+// No "banco" do mock os pedidos já ficam no formato do painel da loja (com o cliente).
+export const seedPedidos: PedidoAdmin[] = pedidosBase.map((p) => ({
+  ...p,
+  cliente: { id: 1, nome: 'Ana Cliente', telefone: '(11) 98888-1111' },
+  pixExpiraEm: null,
+  pagamentoConfirmadoEm: p.data,
+  confirmarPagamentoAte: null,
+  aviso: null,
+}));
 
 // Loja do modo demonstração: sempre aberta, com entrega.
 export const seedLoja: Loja = {

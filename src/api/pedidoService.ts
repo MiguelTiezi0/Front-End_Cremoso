@@ -1,4 +1,4 @@
-import type { NovoPedido, Pedido, PedidoResumo } from '@/types';
+import type { NovoPedido, Pedido, PedidoResumo, PreviaPedido, PreviaPedidoInput } from '@/types';
 import { MOCK } from '@/config/mock';
 import { api } from './client';
 import { mock } from './mock/carregar';
@@ -21,6 +21,12 @@ export const pedidoService = {
     const { data } = await api.post<Pedido>('/pedidos', pedido, {
       headers: { 'Idempotency-Key': chaveIdempotencia },
     });
+    return data;
+  },
+  // Checkout: total, taxa, pontos e itens recusados calculados pela API (não grava nada).
+  async previa(input: PreviaPedidoInput): Promise<PreviaPedido> {
+    if (MOCK.pedidos) return (await mock()).previaPedido(input);
+    const { data } = await api.post<PreviaPedido>('/pedidos/previa', input);
     return data;
   },
   async cancelar(id: number): Promise<Pedido> {
