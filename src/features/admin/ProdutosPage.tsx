@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Package, PackageX, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -42,6 +42,7 @@ export default function ProdutosPage() {
   const [editing, setEditing] = useState<Produto | null>(null);
   const [toDelete, setToDelete] = useState<Produto | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [esgotandoId, setEsgotandoId] = useState<number | null>(null);
 
   const {
     register,
@@ -131,6 +132,38 @@ export default function ProdutosPage() {
       setTogglingId(null);
     }
   };
+
+  // "Acabou hoje": um toque tira o produto do cardápio sem desativar (separado do ativo).
+  const alternarEsgotado = async (p: Produto) => {
+    setEsgotandoId(p.id);
+    try {
+      const updated = await produtoService.marcarEsgotado(p.id, !p.esgotado);
+      setProdutos((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast.success(updated.esgotado ? `${p.descricao}: esgotado.` : `${p.descricao}: disponível de novo.`);
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setEsgotandoId(null);
+    }
+  };
+
+  const botaoEsgotado = (p: Produto, extra = '') => (
+    <button
+      type="button"
+      aria-pressed={!!p.esgotado}
+      aria-label={`Esgotado: ${p.descricao}`}
+      disabled={esgotandoId === p.id}
+      onClick={() => alternarEsgotado(p)}
+      className={`btn px-3 py-2 text-xs ${
+        p.esgotado
+          ? 'bg-strawberry-500 text-white hover:bg-strawberry-600 focus:ring-strawberry-300'
+          : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-cream-100 focus:ring-blueberry-300'
+      } ${extra}`}
+    >
+      {esgotandoId === p.id ? <Spinner className="h-3.5 w-3.5" /> : <PackageX className="h-3.5 w-3.5" />}
+      {p.esgotado ? 'Esgotado' : 'Marcar esgotado'}
+    </button>
+  );
 
   const excluir = async () => {
     if (!toDelete) return;
@@ -222,6 +255,7 @@ export default function ProdutosPage() {
                   <th className="px-4 py-3">Preço</th>
                   <th className="px-4 py-3">Estoque</th>
                   <th className="px-4 py-3">Pontos</th>
+                  <th className="px-4 py-3">Hoje</th>
                   <th className="px-4 py-3">Ativo</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
@@ -255,6 +289,7 @@ export default function ProdutosPage() {
                       {p.precoEmPontos ?? SEM_VALOR} /{' '}
                       {p.ganhoDePontos === null ? SEM_VALOR : `+${p.ganhoDePontos}`}
                     </td>
+                    <td className="px-4 py-3">{botaoEsgotado(p)}</td>
                     <td className="px-4 py-3">
                       {togglingId === p.id ? (
                         <Spinner className="h-4 w-4 text-blueberry-600" />
@@ -305,6 +340,7 @@ export default function ProdutosPage() {
                     {formatBRL(p.preco)}{' '}
                     <span className="text-xs font-normal text-slate-400">· estoque {p.quantidade}</span>
                   </p>
+                  {botaoEsgotado(p, 'mt-2 w-full py-3 text-sm')}
                   <div className="mt-2 flex gap-2">
                     <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => abrirEdicao(p)}>
                       <Pencil className="h-3.5 w-3.5" /> Editar

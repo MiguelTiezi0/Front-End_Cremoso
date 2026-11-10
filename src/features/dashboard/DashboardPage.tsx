@@ -1,14 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Package, PackageX, Sparkles, Tags } from 'lucide-react';
+import {
+  ArrowRight,
+  BellRing,
+  ClipboardList,
+  Package,
+  PackageX,
+  Sparkles,
+  Tags,
+  Wallet,
+} from 'lucide-react';
 import { ProdutoCard } from '@/components/ProdutoCard';
 import { CardSkeleton, Skeleton } from '@/components/ui/Loaders';
 import { EmptyState, ErrorState, StatusPedidoBadge } from '@/components/ui/Misc';
 import { useAuth } from '@/context/AuthContext';
 import { categoriaService, produtoService } from '@/api/catalogoService';
 import { pedidoService } from '@/api/pedidoService';
+import { FILA_DO_PAINEL, adminPedidoService } from '@/api/adminService';
 import { DISPONIVEL } from '@/config/mock';
-import type { PedidoResumo, Produto } from '@/types';
+import type { PedidoAdmin, PedidoResumo, Produto, ResumoDia } from '@/types';
+import { pixTardioAberto, precisaDevolver } from '@/lib/painel';
 import { SEM_PONTOS, extractErrorMessage, formatBRL, formatData, formatPontos } from '@/lib/format';
 
 // Destaques: os 4 produtos ativos com estoque mais recentes (id decrescente).
@@ -156,20 +167,39 @@ function ClienteDashboard() {
   );
 }
 
+// O que espera a loja agir: pedido novo, Pix para conferir, devolução e Pix vencido.
+function pendencias(fila: PedidoAdmin[]) {
+  return {
+    novos: fila.filter((p) => p.status === 'RECEBIDO').length,
+    aguardandoPix: fila.filter((p) => p.status === 'ACEITO' && p.statusPagamento === 'PENDENTE').length,
+    devolver: fila.filter(precisaDevolver).length,
+    pixVencido: fila.filter((p) => pixTardioAberto(p)).length,
+  };
+}
+
 function AdminDashboard() {
   const { user } = useAuth();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [totalCategorias, setTotalCategorias] = useState(0);
+  const [resumo, setResumo] = useState<ResumoDia | null>(null);
+  const [fila, setFila] = useState<PedidoAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([produtoService.list(), categoriaService.list()])
-      .then(([prods, categorias]) => {
+    Promise.all([
+      produtoService.list(),
+      categoriaService.list(),
+      adminPedidoService.resumo(),
+      adminPedidoService.list({ status: FILA_DO_PAINEL }),
+    ])
+      .then(([prods, categorias, doDia, pedidos]) => {
         if (!active) return;
         setProdutos(prods);
         setTotalCategorias(categorias.length);
+        setResumo(doDia);
+        setFila(pedidos);
       })
       .catch((e) => active && setErro(extractErrorMessage(e, 'Não foi possível carregar o painel.')))
       .finally(() => active && setLoading(false));
@@ -180,18 +210,61 @@ function AdminDashboard() {
 
   const primeiroNome = user?.nome.split(' ')[0] ?? '';
   const ativos = produtos.filter((p) => p.ativo).length;
-  const esgotados = produtos.filter((p) => p.quantidade <= 0).length;
+  const esgotados = produtos.filter((p) => p.ativo && p.esgotado).length;
+  const acao = pendencias(fila);
+  const totalAcao = acao.novos + acao.aguardandoPix + acao.devolver + acao.pixVencido;
 
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-2xl bg-blueberry-500 p-6 text-white sm:p-8">
         <p className="text-blueberry-100">Olá, {primeiroNome}</p>
         <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Painel administrativo</h1>
+        <Link to="/admin/pedidos" className="btn mt-4 bg-white px-5 py-3 text-base text-blueberry-700 hover:bg-blueberry-50">
+          <ClipboardList className="h-5 w-5" /> Abrir a fila de pedidos
+        </Link>
       </section>
 
       {erro && <ErrorState message={erro} />}
 
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <section aria-label="Hoje" className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={<ClipboardList className="h-5 w-5" />}
+          label="Pedidos de hoje"
+          value={resumo?.pedidos ?? 0}
+          loading={loading}
+          to="/admin/pedidos"
+        />
+        <StatCard
+          icon={<Wallet className="h-5 w-5" />}
+          label="Faturamento do dia"
+          value={formatBRL(resumo?.totalConfirmado ?? 0)}
+          detalhe="Só pagamentos confirmados"
+          loading={loading}
+          to="/admin/pedidos"
+        />
+        <StatCard
+          icon={<BellRing className="h-5 w-5" />}
+          label="Aguardando ação"
+          value={totalAcao}
+          detalhe={
+            totalAcao > 0
+              ? [
+                  acao.novos && `${acao.novos} novo${acao.novos > 1 ? 's' : ''}`,
+                  acao.aguardandoPix && `${acao.aguardandoPix} aguardando Pix`,
+                  acao.devolver && `${acao.devolver} para devolver`,
+                  acao.pixVencido && `${acao.pixVencido} Pix vencido`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'Nada pendente'
+          }
+          destaque={totalAcao > 0}
+          loading={loading}
+          to="/admin/pedidos"
+        />
+      </section>
+
+      <section aria-label="Cardápio" className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard
           icon={<Package className="h-5 w-5" />}
           label="Produtos ativos"
@@ -201,7 +274,7 @@ function AdminDashboard() {
         />
         <StatCard
           icon={<PackageX className="h-5 w-5" />}
-          label="Produtos esgotados"
+          label="Esgotados hoje"
           value={esgotados}
           loading={loading}
           to="/admin/produtos"
@@ -222,19 +295,26 @@ function StatCard({
   icon,
   label,
   value,
+  detalhe,
+  destaque = false,
   loading,
   to,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  value: number | string;
+  detalhe?: string;
+  destaque?: boolean;
   loading: boolean;
   to: string;
 }) {
   return (
     <Link
       to={to}
-      className="card flex items-center gap-4 transition-colors hover:border-blueberry-200"
+      aria-label={label}
+      className={`card flex items-center gap-4 transition-colors hover:border-blueberry-200 ${
+        destaque ? 'border-strawberry-300 ring-2 ring-strawberry-200' : ''
+      }`}
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blueberry-50 text-blueberry-600">
         {icon}
@@ -244,8 +324,11 @@ function StatCard({
         {loading ? (
           <Skeleton className="mt-1 h-6 w-10" />
         ) : (
-          <p className="text-2xl font-bold text-slate-800">{value}</p>
+          <p className="text-2xl font-bold text-slate-800" data-testid={`valor-${label}`}>
+            {value}
+          </p>
         )}
+        {!loading && detalhe && <p className="text-xs text-slate-500">{detalhe}</p>}
       </div>
     </Link>
   );
