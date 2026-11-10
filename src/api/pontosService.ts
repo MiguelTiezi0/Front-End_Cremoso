@@ -17,8 +17,9 @@ export const pontosService = {
     const { data } = await api.get<MovimentoPontos[]>('/pontos/extrato');
     return data;
   },
+  // Só existe no mock (DISPONIVEL.resgate): a API ainda não tem resgate.
   async resgatar(user: User, produto: Produto): Promise<MovimentoPontos> {
-    if (MOCK.pontos) return (await mock()).resgatarProduto(user, produto);
+    if (MOCK.resgate) return (await mock()).resgatarProduto(user, produto);
     const { data } = await api.post<MovimentoPontos>('/pontos/resgates', { produtoId: produto.id });
     return data;
   },

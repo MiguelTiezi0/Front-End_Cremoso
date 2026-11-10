@@ -25,6 +25,7 @@ export interface Produto {
   imagemUrl: string | null;
   precoEmPontos: number | null;
   ganhoDePontos: number | null;
+  esgotado?: boolean; // Entrega 2: marcado pela loja (o cardápio público usa este campo)
   dataCadastro: string; // ISO — somente leitura (preenchido pelo back-end)
   dataAtualizacao: string; // ISO — somente leitura
 }
@@ -108,55 +109,171 @@ export interface Endereco {
 export type EnderecoInput = Omit<Endereco, 'id'>;
 
 // ---------------------------------------------------------------------------
+// Loja e cardápio (públicos: GET /loja e GET /cardapio, sem login)
+// ---------------------------------------------------------------------------
+
+export type MotivoLojaFechada = 'PAUSADA' | 'PAGAMENTO_NAO_CONFIGURADO' | 'FORA_DO_HORARIO';
+
+export interface HorarioLoja {
+  diaSemana: number; // 0 = segunda ... 6 = domingo
+  abre: string; // "13:00"
+  fecha: string;
+}
+
+export interface Loja {
+  nome: string;
+  cidade: string | null;
+  aberta: boolean;
+  motivoFechada: MotivoLojaFechada | null;
+  proximaAbertura: string | null; // ISO com fuso da loja
+  horarios: HorarioLoja[];
+  entregaAtiva: boolean;
+  taxaEntrega: number;
+  pedidoMinimo: number | null; // só para entrega
+  formasPagamento: FormaPagamento[];
+  whatsapp: string | null;
+}
+
+export interface ProdutoCardapio {
+  id: number;
+  descricao: string;
+  preco: number;
+  imagemUrl: string | null;
+  ganhoDePontos: number | null;
+  esgotado: boolean;
+}
+
+export interface CategoriaCardapio {
+  id: number;
+  nome: string;
+  descricao: string;
+  imagemUrl: string;
+  produtos: ProdutoCardapio[];
+}
+
+export interface Cardapio {
+  categorias: CategoriaCardapio[];
+}
+
+// ---------------------------------------------------------------------------
 // Pedidos
 // ---------------------------------------------------------------------------
 
 export type StatusPedido =
   | 'RECEBIDO'
+  | 'ACEITO'
   | 'EM_PREPARO'
+  | 'PRONTO'
   | 'SAIU_PARA_ENTREGA'
-  | 'ENTREGUE'
+  | 'CONCLUIDO'
   | 'CANCELADO';
 
-export type FormaPagamento = 'PIX' | 'CARTAO' | 'DINHEIRO' | 'PONTOS';
+export type StatusPagamento = 'PENDENTE' | 'CONFIRMADO' | 'DEVOLVIDO';
+
+// Só pagamento online (Pix) por enquanto.
+export type FormaPagamento = 'PIX';
 export type TipoEntrega = 'ENTREGA' | 'RETIRADA';
 
 export interface ItemPedido {
   produtoId: number;
   descricao: string;
-  imagemUrl: string;
+  imagemUrl: string | null;
   quantidade: number;
   valorUnitario: number;
   subtotal: number;
+  pontos: number;
 }
 
+export interface EnderecoEntrega {
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento: string | null;
+  bairro: string;
+  cidade: string;
+  referencia: string | null;
+}
+
+export interface PixPedido {
+  copiaECola: string;
+  valor: number;
+  expiraEm: string; // ISO
+}
+
+export interface HistoricoPedido {
+  status: StatusPedido;
+  em: string; // ISO
+}
+
+// GET /pedidos/{id}
 export interface Pedido {
   id: number;
   data: string; // ISO
   status: StatusPedido;
+  statusPagamento: StatusPagamento;
+  tipoEntrega: TipoEntrega;
+  formaPagamento: FormaPagamento;
   itens: ItemPedido[];
   subtotal: number;
   frete: number;
   total: number;
-  formaPagamento: FormaPagamento;
-  tipoEntrega: TipoEntrega;
-  endereco?: Endereco; // ausente quando tipoEntrega === 'RETIRADA'
   pontosGanhos: number;
+  pontosCreditados: boolean;
+  pix: PixPedido | null; // só enquanto o pagamento está pendente
+  endereco: EnderecoEntrega | null; // null na retirada
+  observacao: string | null;
+  podeCancelar: boolean;
+  motivoCancelamento: string | null; // "PIX_EXPIRADO" quando o sistema cancela
+  canceladoPor: 'CLIENTE' | 'LOJA' | 'SISTEMA' | null;
+  historico: HistoricoPedido[];
+}
+
+// GET /pedidos (lista)
+export interface PedidoResumo {
+  id: number;
+  data: string;
+  status: StatusPedido;
+  statusPagamento: StatusPagamento;
+  tipoEntrega: TipoEntrega;
+  total: number;
+  quantidadeItens: number;
+  imagens: string[];
+}
+
+export interface EnderecoEntregaInput {
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  referencia?: string;
+}
+
+// POST /pedidos (preço, nome e pontos sempre vêm do banco)
+export interface NovoPedido {
+  tipoEntrega: TipoEntrega;
+  formaPagamento: FormaPagamento;
+  itens: { produtoId: number; quantidade: number }[];
+  endereco?: EnderecoEntregaInput;
+  observacao?: string;
+  totalExibido?: number; // só para a API avisar se o preço mudou
 }
 
 // ---------------------------------------------------------------------------
 // Fidelidade / Pontos
 // ---------------------------------------------------------------------------
 
-export type TipoMovimentoPontos = 'GANHO' | 'RESGATE';
+// GANHO = pedido concluído; ESTORNO = pedido concluído e depois cancelado; AJUSTE = saldo
+// anterior ao extrato. RESGATE ainda não existe na API (fica "Em breve").
+export type TipoMovimentoPontos = 'GANHO' | 'ESTORNO' | 'AJUSTE' | 'RESGATE';
 
 export interface MovimentoPontos {
   id: number;
   data: string; // ISO
   tipo: TipoMovimentoPontos;
-  pontos: number; // positivo p/ ganho, negativo p/ resgate
+  pontos: number; // com sinal
   descricao: string;
-  pedidoId?: number;
+  pedidoId?: number | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,10 +4,14 @@ import type {
   CategoriaInput,
   Endereco,
   EnderecoInput,
+  Cardapio,
+  Loja,
   LoginPayload,
   MovimentoPontos,
   Notificacao,
+  NovoPedido,
   Pedido,
+  PedidoResumo,
   PerfilUpdatePayload,
   Produto,
   ProdutoInput,
@@ -16,7 +20,7 @@ import type {
 } from '@/types';
 import { MOCK } from '@/config/mock';
 import { db, nextId, persist } from './db';
-import { MockUser } from './seed';
+import { MockUser, seedLoja } from './seed';
 
 // Simula latência de rede.
 const delay = (ms = 450) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +50,26 @@ function movimentosDe(user: User): MovimentoPontos[] {
   if (usuarioDoMock(user)) return db.movimentos;
   db.movimentosPorUsuario ??= {};
   return (db.movimentosPorUsuario[String(user.id)] ??= []);
+}
+
+const centavos = (v: number) => Math.round(v * 100) / 100;
+
+function cancelar(pedido: Pedido, por: 'CLIENTE' | 'SISTEMA', motivo: string, em: string) {
+  pedido.status = 'CANCELADO';
+  pedido.canceladoPor = por;
+  pedido.motivoCancelamento = motivo;
+  pedido.podeCancelar = false;
+  pedido.pix = null;
+  pedido.historico.push({ status: 'CANCELADO', em });
+}
+
+// Igual à API: Pix não pago em 15 minutos cancela o pedido (na próxima leitura).
+function expirarPix(pedido: Pedido) {
+  const expira = pedido.pix?.expiraEm;
+  if (pedido.statusPagamento !== 'PENDENTE' || !expira || Date.now() < Date.parse(expira)) return;
+  if (pedido.status !== 'RECEBIDO' && pedido.status !== 'ACEITO') return;
+  cancelar(pedido, 'SISTEMA', 'PIX_EXPIRADO', expira);
+  persist();
 }
 
 const fakeToken = (u: MockUser) =>
@@ -256,16 +280,148 @@ export const mockApi = {
   // Pedidos
   // -------------------------------------------------------------------------
 
-  async listPedidos(): Promise<Pedido[]> {
+  async listPedidos(): Promise<PedidoResumo[]> {
     await delay(300);
-    return structuredClone(db.pedidos).sort((a, b) => b.data.localeCompare(a.data));
+    db.pedidos.forEach(expirarPix);
+    return structuredClone(db.pedidos)
+      .sort((a, b) => b.data.localeCompare(a.data))
+      .map((p) => ({
+        id: p.id,
+        data: p.data,
+        status: p.status,
+        statusPagamento: p.statusPagamento,
+        tipoEntrega: p.tipoEntrega,
+        total: p.total,
+        quantidadeItens: p.itens.reduce((s, i) => s + i.quantidade, 0),
+        imagens: p.itens.map((i) => i.imagemUrl).filter((u): u is string => !!u).slice(0, 3),
+      }));
   },
 
   async getPedido(id: number): Promise<Pedido> {
     await delay(200);
     const pedido = db.pedidos.find((p) => p.id === id);
     if (!pedido) apiError(404, 'Pedido não encontrado.');
+    expirarPix(pedido);
     return structuredClone(pedido);
+  },
+
+  // Versão simplificada da API: recalcula preços, recusa esgotado e aplica o mínimo.
+  async criarPedido(novo: NovoPedido, chave: string): Promise<Pedido> {
+    await delay();
+    db.chavesPedido ??= {};
+    const repetido = db.pedidos.find((p) => p.id === db.chavesPedido?.[chave]);
+    if (repetido) return structuredClone(repetido);
+
+    const itens = novo.itens.map(({ produtoId, quantidade }) => {
+      const produto = db.produtos.find((p) => p.id === produtoId && p.ativo);
+      if (!produto || produto.quantidade <= 0 || produto.esgotado) {
+        apiError(409, 'Um produto do carrinho não está mais disponível.');
+      }
+      const pontos = (produto.ganhoDePontos ?? 0) * quantidade;
+      return {
+        produtoId,
+        descricao: produto.descricao,
+        imagemUrl: produto.imagemUrl,
+        quantidade,
+        valorUnitario: produto.preco,
+        subtotal: centavos(produto.preco * quantidade),
+        pontos,
+      };
+    });
+    const subtotal = centavos(itens.reduce((s, i) => s + i.subtotal, 0));
+    const entrega = novo.tipoEntrega === 'ENTREGA';
+    if (entrega && seedLoja.pedidoMinimo !== null && subtotal < seedLoja.pedidoMinimo) {
+      apiError(409, 'O pedido mínimo para entrega não foi atingido.');
+    }
+    const frete = entrega ? seedLoja.taxaEntrega : 0;
+    const agora = new Date();
+    const pedido: Pedido = {
+      id: nextId(),
+      data: agora.toISOString(),
+      status: 'RECEBIDO',
+      statusPagamento: 'PENDENTE',
+      tipoEntrega: novo.tipoEntrega,
+      formaPagamento: 'PIX',
+      itens,
+      subtotal,
+      frete,
+      total: centavos(subtotal + frete),
+      pontosGanhos: itens.reduce((s, i) => s + i.pontos, 0),
+      pontosCreditados: false,
+      pix: {
+        // Código de mentira: o modo demonstração não gera Pix de verdade.
+        copiaECola: `00020126580014BR.GOV.BCB.PIX0136MODO-DEMONSTRACAO-SEM-VALOR5204000053039865802BR5907CREMOSO6012TAQUARITINGA6304ABCD`,
+        valor: centavos(subtotal + frete),
+        expiraEm: new Date(agora.getTime() + 15 * 60_000).toISOString(),
+      },
+      endereco:
+        entrega && novo.endereco
+          ? {
+              cep: novo.endereco.cep,
+              rua: novo.endereco.rua,
+              numero: novo.endereco.numero,
+              complemento: novo.endereco.complemento ?? null,
+              bairro: novo.endereco.bairro,
+              cidade: seedLoja.cidade ?? '',
+              referencia: novo.endereco.referencia ?? null,
+            }
+          : null,
+      observacao: novo.observacao ?? null,
+      podeCancelar: true,
+      motivoCancelamento: null,
+      canceladoPor: null,
+      historico: [{ status: 'RECEBIDO', em: agora.toISOString() }],
+    };
+    db.pedidos.push(pedido);
+    db.chavesPedido[chave] = pedido.id;
+    persist();
+    return structuredClone(pedido);
+  },
+
+  async cancelarPedido(id: number): Promise<Pedido> {
+    await delay();
+    const pedido = db.pedidos.find((p) => p.id === id);
+    if (!pedido) apiError(404, 'Pedido não encontrado.');
+    expirarPix(pedido);
+    if (pedido.status !== 'CANCELADO') {
+      if (!pedido.podeCancelar) apiError(409, 'Este pedido não pode mais ser cancelado.');
+      cancelar(pedido, 'CLIENTE', 'Cancelado pelo cliente.', new Date().toISOString());
+      persist();
+    }
+    return structuredClone(pedido);
+  },
+
+  // -------------------------------------------------------------------------
+  // Loja e cardápio
+  // -------------------------------------------------------------------------
+
+  async getLoja(): Promise<Loja> {
+    await delay(150);
+    return structuredClone(seedLoja);
+  },
+
+  async getCardapio(): Promise<Cardapio> {
+    await delay(250);
+    const categorias = db.categorias
+      .filter((c) => c.ativa)
+      .map((c) => ({
+        id: c.id,
+        nome: c.nome,
+        descricao: c.descricao,
+        imagemUrl: c.imagemUrl,
+        produtos: db.produtos
+          .filter((p) => p.ativo && p.categoria.id === c.id)
+          .map((p) => ({
+            id: p.id,
+            descricao: p.descricao,
+            preco: p.preco,
+            imagemUrl: p.imagemUrl,
+            ganhoDePontos: p.ganhoDePontos,
+            esgotado: p.esgotado ?? p.quantidade <= 0,
+          })),
+      }))
+      .filter((c) => c.produtos.length > 0);
+    return structuredClone({ categorias });
   },
 
   // -------------------------------------------------------------------------

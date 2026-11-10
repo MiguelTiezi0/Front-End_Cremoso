@@ -31,9 +31,11 @@ interface DbShape {
   // por id do usuário. Opcional para continuar lendo bancos já salvos no localStorage.
   movimentosPorUsuario?: Record<string, MovimentoPontos[]>;
   notificacoes: Notificacao[];
+  // Idempotency-Key → id do pedido criado (reenvio devolve o mesmo pedido).
+  chavesPedido?: Record<string, number>;
 }
 
-const DB_KEY = 'cremoso.mockdb.v1';
+const DB_KEY = 'cremoso.mockdb.v2';
 
 function seedDb(): DbShape {
   return {

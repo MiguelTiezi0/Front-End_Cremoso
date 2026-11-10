@@ -16,9 +16,11 @@ export const BACKEND = {
   perfil: true, // PUT /clientes/me
   categorias: true,
   produtos: true,
-  pedidos: false,
-  enderecos: false,
-  pontos: false, // o saldo já vem de /auth/me (saldoPontos); extrato e resgate, não
+  loja: true, // GET /loja e GET /cardapio (públicos)
+  pedidos: true, // cliente: criar, listar, detalhe, cancelar
+  pontos: true, // saldo e extrato (créditos e estornos)
+  resgate: false, // trocar pontos por produto: ainda não existe na API
+  enderecos: false, // cadastro de endereços: no checkout o endereço é digitado
   notificacoes: false,
 } as const;
 
@@ -29,19 +31,22 @@ export const MOCK = {
   perfil: USE_MOCK,
   categorias: USE_MOCK,
   produtos: USE_MOCK,
+  loja: USE_MOCK,
   pedidos: USE_MOCK,
   enderecos: USE_MOCK,
   pontos: USE_MOCK,
+  resgate: USE_MOCK,
   notificacoes: USE_MOCK,
 } as const;
 
 // Módulo aparece no app (menu, rotas e chamadas): tem backend ou o mock está ligado.
-// Sem isso ele fica escondido — nem mock nem tela de erro. Pontos é parcial: a tela sempre
-// aparece com o saldo real; só extrato e resgate dependem de DISPONIVEL.pontos ("Em breve").
+// Sem isso ele fica escondido — nem mock nem tela de erro. Na tela de pontos, saldo e
+// extrato são reais; só o resgate depende de DISPONIVEL.resgate ("Em breve").
 export const DISPONIVEL = {
   pedidos: BACKEND.pedidos || USE_MOCK,
   enderecos: BACKEND.enderecos || USE_MOCK,
   pontos: BACKEND.pontos || USE_MOCK,
+  resgate: BACKEND.resgate || USE_MOCK,
   notificacoes: BACKEND.notificacoes || USE_MOCK,
 } as const;
 
