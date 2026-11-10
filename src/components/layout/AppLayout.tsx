@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
   Gift,
   IceCreamCone,
   LayoutDashboard,
   Menu,
+  LogIn,
   Package,
   ShoppingBag,
+  ShoppingCart,
   Tags,
   X,
 } from 'lucide-react';
 import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
+import { useCarrinho } from '@/context/CarrinhoContext';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 import { UserMenu } from './UserMenu';
@@ -22,12 +25,13 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
   clienteOnly?: boolean;
+  publico?: boolean; // aparece também para quem não fez login
   disponivel?: boolean; // false = módulo sem backend (src/config/mock.ts): fica fora do menu
 }
 
 const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Início', icon: LayoutDashboard },
-  { to: '/catalogo', label: 'Catálogo', icon: IceCreamCone, clienteOnly: true },
+  { to: '/catalogo', label: 'Catálogo', icon: IceCreamCone, clienteOnly: true, publico: true },
   { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, clienteOnly: true, disponivel: DISPONIVEL.pedidos },
   { to: '/pontos', label: 'Pontos', icon: Gift, clienteOnly: true },
   { to: '/admin/produtos', label: 'Produtos', icon: Package, adminOnly: true },
@@ -36,9 +40,14 @@ const NAV: NavItem[] = [
 
 export function AppLayout() {
   const { user, isAdmin } = useAuth();
+  const { quantidadeTotal } = useCarrinho();
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = NAV.filter(
-    (i) => i.disponivel !== false && (!i.adminOnly || isAdmin) && (!i.clienteOnly || !isAdmin),
+    (i) =>
+      i.disponivel !== false &&
+      (user || i.publico) &&
+      (!i.adminOnly || isAdmin) &&
+      (!i.clienteOnly || !isAdmin),
   );
 
   return (
@@ -53,7 +62,7 @@ export function AppLayout() {
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <NavLink to="/dashboard">
+          <NavLink to={user ? '/dashboard' : '/catalogo'}>
             <Logo />
           </NavLink>
 
@@ -66,7 +75,27 @@ export function AppLayout() {
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             {/* Mesma condição do polling no NotificationProvider. */}
             {user?.role === 'CLIENTE' && DISPONIVEL.notificacoes && <NotificationBell />}
-            <UserMenu />
+            {!isAdmin && (
+              <Link
+                to="/carrinho"
+                className="relative rounded-full p-2 text-slate-500 hover:bg-cream-100"
+                aria-label={`Carrinho (${quantidadeTotal} ${quantidadeTotal === 1 ? 'item' : 'itens'})`}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {quantidadeTotal > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-strawberry-500 px-1 text-[10px] font-bold text-white">
+                    {quantidadeTotal > 99 ? '99+' : quantidadeTotal}
+                  </span>
+                )}
+              </Link>
+            )}
+            {user ? (
+              <UserMenu />
+            ) : (
+              <Link to="/login" className="btn-primary px-3 py-2">
+                <LogIn className="h-4 w-4" /> Entrar
+              </Link>
+            )}
           </div>
         </div>
 

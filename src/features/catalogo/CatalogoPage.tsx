@@ -1,25 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IceCreamCone } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { IceCreamCone, ShoppingCart } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { ProdutoCard } from '@/components/ProdutoCard';
+import { ProdutoCardapioCard } from '@/components/ProdutoCardapioCard';
+import { LojaStatus } from '@/components/LojaStatus';
 import { CardSkeleton } from '@/components/ui/Loaders';
 import { EmptyState, ErrorState } from '@/components/ui/Misc';
-import { produtoService } from '@/api/catalogoService';
-import type { Produto } from '@/types';
-import { extractErrorMessage } from '@/lib/format';
+import { lojaService } from '@/api/lojaService';
+import { useCarrinho } from '@/context/CarrinhoContext';
+import { useToast } from '@/context/ToastContext';
+import { useLoja } from '@/hooks/useLoja';
+import type { CategoriaCardapio, ProdutoCardapio } from '@/types';
+import { MAX_PRODUTOS_DIFERENTES, subtotalDe } from '@/lib/carrinho';
+import { extractErrorMessage, formatBRL } from '@/lib/format';
 
-// Catálogo do cliente: produtos ativos (GET /produtos/ativos), com filtro por categoria.
+// Cardápio público (GET /cardapio, sem login): categorias ativas com os produtos ativos.
+// Esgotado aparece marcado e não entra no carrinho.
 export default function CatalogoPage() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaCardapio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categoriaId, setCategoriaId] = useState<number | 'TODAS'>('TODAS');
+  const { loja } = useLoja();
+  const carrinho = useCarrinho();
+  const toast = useToast();
 
   // Só faz setState nos callbacks da promise, então pode rodar direto no effect.
   const buscar = useCallback(() => {
-    produtoService
-      .listAtivos()
-      .then(setProdutos)
+    lojaService
+      .cardapio()
+      .then((c) => setCategorias(c.categorias))
       .catch((e) => setError(extractErrorMessage(e, 'Não foi possível carregar o catálogo.')))
       .finally(() => setLoading(false));
   }, []);
@@ -32,38 +42,51 @@ export default function CatalogoPage() {
     buscar();
   };
 
-  const categorias = useMemo(() => {
-    const porId = new Map(produtos.map((p) => [p.categoria.id, p.categoria]));
-    return [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [produtos]);
+  const visiveis = useMemo(
+    () => (categoriaId === 'TODAS' ? categorias : categorias.filter((c) => c.id === categoriaId)),
+    [categorias, categoriaId],
+  );
 
-  const visiveis =
-    categoriaId === 'TODAS' ? produtos : produtos.filter((p) => p.categoria.id === categoriaId);
+  const adicionar = (produto: ProdutoCardapio) => {
+    if (!carrinho.adicionar(produto)) {
+      toast.error(`O carrinho aceita até ${MAX_PRODUTOS_DIFERENTES} produtos diferentes.`);
+      return;
+    }
+    toast.success(`${produto.descricao} no carrinho.`);
+  };
 
   return (
-    <>
+    <div className={carrinho.quantidadeTotal > 0 ? 'pb-24' : undefined}>
       <PageHeader title="Catálogo" subtitle="Escolha seu sabor favorito." />
 
+      {loja && (
+        <div className="mb-5">
+          <LojaStatus loja={loja} />
+        </div>
+      )}
+
       {categorias.length > 1 && (
-        <select
-          className="input mb-5 sm:max-w-xs"
-          value={categoriaId}
-          onChange={(e) =>
-            setCategoriaId(e.target.value === 'TODAS' ? 'TODAS' : Number(e.target.value))
-          }
-          aria-label="Filtrar por categoria"
-        >
-          <option value="TODAS">Todas as categorias</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={c.id}>
+        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filtrar por categoria">
+          {[{ id: 'TODAS' as const, nome: 'Todas' }, ...categorias].map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCategoriaId(c.id)}
+              aria-pressed={categoriaId === c.id}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                categoriaId === c.id
+                  ? 'bg-blueberry-500 text-white'
+                  : 'bg-white text-slate-500 ring-1 ring-cream-200 hover:bg-cream-100'
+              }`}
+            >
               {c.nome}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       )}
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <CardSkeleton key={i} />
           ))}
@@ -77,12 +100,34 @@ export default function CatalogoPage() {
           description="Volte mais tarde para conferir as novidades."
         />
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {visiveis.map((p) => (
-            <ProdutoCard key={p.id} produto={p} />
+        <div className="space-y-8">
+          {visiveis.map((c) => (
+            <section key={c.id}>
+              <h2 className="mb-3 text-lg font-bold text-slate-800">{c.nome}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                {c.produtos.map((p) => (
+                  <ProdutoCardapioCard key={p.id} produto={p} categoria={c.nome} onAdicionar={adicionar} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
-    </>
+
+      {/* Atalho fixo para o carrinho (principalmente no celular). */}
+      {carrinho.quantidadeTotal > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-cream-200 bg-white/95 p-3 backdrop-blur">
+          <Link
+            to="/carrinho"
+            className="btn-primary mx-auto flex w-full max-w-md justify-between"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" /> Ver carrinho ({carrinho.quantidadeTotal})
+            </span>
+            <span>{formatBRL(subtotalDe(carrinho.itens))}</span>
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
