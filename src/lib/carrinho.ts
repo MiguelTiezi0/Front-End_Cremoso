@@ -1,4 +1,4 @@
-import type { NovoPedido, ProdutoCardapio } from '@/types';
+import type { NovoPedido, PreviaPedidoInput, ProdutoCardapio, TipoEntrega } from '@/types';
 
 // Regras do carrinho (funções puras; o estado fica em src/context/CarrinhoContext.tsx).
 
@@ -6,7 +6,7 @@ import type { NovoPedido, ProdutoCardapio } from '@/types';
 export const MAX_QUANTIDADE = 50;
 export const MAX_PRODUTOS_DIFERENTES = 30;
 export const MAX_OBSERVACAO_PEDIDO = 500;
-export const MAX_OBSERVACAO_ITEM = 120;
+export const MAX_OBSERVACAO_ITEM = 140;
 
 // O que o cliente viu ao adicionar. Preço e pontos são só para exibir: a API recalcula tudo.
 export interface ItemCarrinho {
@@ -85,16 +85,12 @@ export function revalidar(
 
 export const bloqueiaFinalizar = (a: AvisoCarrinho) => a.tipo !== 'PRECO';
 
-// A API tem uma observação por pedido: as observações por item vão juntas, uma por linha,
-// seguidas da observação geral.
-export function montarObservacao(itens: ItemCarrinho[], geral = ''): string | undefined {
-  const linhas = itens
-    .filter((i) => i.observacao.trim())
-    .map((i) => `${i.quantidade}x ${i.descricao}: ${i.observacao.trim()}`);
-  if (geral.trim()) linhas.push(geral.trim());
-  const texto = linhas.join('\n');
-  return texto ? texto.slice(0, MAX_OBSERVACAO_PEDIDO) : undefined;
-}
+// Cada item leva a própria observação (a API guarda por item); a geral vai separada.
+const itensDoPedido = (itens: ItemCarrinho[]) =>
+  itens.map((i) => {
+    const observacao = i.observacao.trim().slice(0, MAX_OBSERVACAO_ITEM);
+    return { produtoId: i.produtoId, quantidade: i.quantidade, ...(observacao && { observacao }) };
+  });
 
 export function corpoDoPedido(
   itens: ItemCarrinho[],
@@ -103,11 +99,23 @@ export function corpoDoPedido(
   },
 ): NovoPedido {
   const { observacaoGeral, ...resto } = dados;
+  const geral = observacaoGeral?.trim().slice(0, MAX_OBSERVACAO_PEDIDO);
   return {
     ...resto,
     formaPagamento: 'PIX',
-    itens: itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade })),
-    observacao: montarObservacao(itens, observacaoGeral),
+    itens: itensDoPedido(itens),
+    ...(geral && { observacao: geral }),
+  };
+}
+
+// Prévia: manda o preço que o carrinho mostra para a API avisar se mudou. O CEP só vai
+// quando está completo (sem ele a API já calcula taxa e mínimo).
+export function corpoDaPrevia(itens: ItemCarrinho[], tipoEntrega: TipoEntrega, cep: string): PreviaPedidoInput {
+  const digitos = cep.replace(/\D/g, '');
+  return {
+    tipoEntrega,
+    itens: itensDoPedido(itens).map((i, n) => ({ ...i, precoExibido: itens[n].preco })),
+    ...(tipoEntrega === 'ENTREGA' && digitos.length === 8 && { cep: digitos }),
   };
 }
 

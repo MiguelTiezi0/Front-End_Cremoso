@@ -12,15 +12,9 @@ import { useCarrinho } from '@/context/CarrinhoContext';
 import { useToast } from '@/context/ToastContext';
 import { useLoja } from '@/hooks/useLoja';
 import { useRevalidarCarrinho } from '@/hooks/useRevalidarCarrinho';
+import { usePrevia } from '@/hooks/usePrevia';
 import type { EnderecoEntregaInput, TipoEntrega } from '@/types';
-import {
-  MAX_OBSERVACAO_PEDIDO,
-  centavos,
-  corpoDoPedido,
-  novaChave,
-  pontosDe,
-  subtotalDe,
-} from '@/lib/carrinho';
+import { MAX_OBSERVACAO_PEDIDO, corpoDaPrevia, corpoDoPedido, novaChave } from '@/lib/carrinho';
 import { extractErrorMessage, formatBRL, formatPontos, maskCep, statusHttp } from '@/lib/format';
 
 type CampoEndereco = keyof EnderecoEntregaInput;
@@ -46,9 +40,10 @@ function validarEndereco(e: EnderecoEntregaInput): Partial<Record<CampoEndereco,
 const codigoDoErro = (err: unknown): string | undefined =>
   (err as { response?: { data?: { codigo?: string } } })?.response?.data?.codigo;
 
-// Checkout (exige login). O preço sai do cardápio da API, conferido ao abrir a tela; a API
-// recalcula tudo de novo e, se o total mudou no meio do caminho, responde 409
-// TOTAL_DIVERGENTE (aí a tela confere de novo e mostra os valores novos).
+// Checkout (exige login). Total, taxa, pontos e mínimo vêm da prévia da API
+// (POST /pedidos/previa), refeita a cada mudança. Na criação a API recalcula tudo de novo e,
+// se o total mudou no meio do caminho, responde 409 TOTAL_DIVERGENTE (aí a tela confere o
+// carrinho e refaz a prévia).
 export default function CheckoutPage() {
   const { user } = useAuth();
   const carrinho = useCarrinho();
@@ -67,6 +62,12 @@ export default function CheckoutPage() {
   // Mesma chave enquanto o conteúdo do pedido for o mesmo: reenviar depois de uma falha de
   // rede devolve o pedido já criado em vez de duplicar. Conteúdo novo, chave nova.
   const chave = useRef<{ valor: string; corpo: string } | null>(null);
+  // Item recusado pela prévia (esgotou, saiu, mudou de preço): confere o carrinho, que
+  // atualiza o preço e mostra o aviso; a prévia é refeita com o carrinho novo.
+  const { previa, erro: erroPrevia, calculando, recalcular } = usePrevia(
+    carrinho.itens.length > 0 ? corpoDaPrevia(carrinho.itens, tipo, endereco.cep) : null,
+    () => void conferir(),
+  );
 
   if (carrinho.itens.length === 0 && !criado) return <Navigate to="/carrinho" replace />;
 
@@ -82,14 +83,11 @@ export default function CheckoutPage() {
   }
 
   const entrega = tipo === 'ENTREGA';
-  const subtotal = subtotalDe(carrinho.itens);
-  const frete = entrega ? loja.taxaEntrega : 0;
-  const total = centavos(subtotal + frete);
-  const pontos = pontosDe(carrinho.itens);
   const minimo = loja.pedidoMinimo ?? 0;
-  const faltaMinimo = entrega && minimo > 0 && subtotal < minimo ? centavos(minimo - subtotal) : 0;
+  const faltaMinimo = previa && entrega && !previa.atingeMinimo ? previa.faltaParaMinimo : 0;
   const semPix = !loja.formasPagamento.includes('PIX');
-  const podeEnviar = loja.aberta && !semPix && !bloqueado && !conferindo && faltaMinimo === 0;
+  const podeEnviar =
+    loja.aberta && !semPix && !bloqueado && !conferindo && !!previa && previa.podeFinalizar;
 
   const mudarEndereco = (campo: CampoEndereco, valor: string) => {
     setEndereco((e) => ({ ...e, [campo]: campo === 'cep' ? maskCep(valor) : valor }));
@@ -115,7 +113,7 @@ export default function CheckoutPage() {
           }
         : undefined,
       observacaoGeral: observacao,
-      totalExibido: total,
+      totalExibido: previa?.total,
     });
     const json = JSON.stringify(corpo);
     if (chave.current?.corpo !== json) chave.current = { valor: novaChave(), corpo: json };
@@ -136,7 +134,10 @@ export default function CheckoutPage() {
           ? 'Sem conexão com a loja. Tente de novo: se o pedido já tiver sido criado, ele não será duplicado.'
           : extractErrorMessage(err, 'Não foi possível enviar o pedido.'),
       );
-      if (codigo === 'TOTAL_DIVERGENTE' || codigo === 'PRODUTO_INDISPONIVEL') void conferir();
+      if (codigo === 'TOTAL_DIVERGENTE' || codigo === 'PRODUTO_INDISPONIVEL') {
+        void conferir();
+        recalcular();
+      }
       if (codigo === 'LOJA_FECHADA' || codigo === 'PAGAMENTO_INDISPONIVEL' || codigo === 'ENTREGA_INDISPONIVEL') {
         recarregarLoja();
       }
@@ -184,7 +185,7 @@ export default function CheckoutPage() {
 
         {entrega && faltaMinimo > 0 && (
           <p role="status" className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            O pedido mínimo para entrega é {formatBRL(minimo)} (sem a taxa). Faltam{' '}
+            O pedido mínimo para entrega é {formatBRL(previa?.pedidoMinimo ?? minimo)} (sem a taxa). Faltam{' '}
             {formatBRL(faltaMinimo)}.{' '}
             <Link to="/catalogo" className="underline">
               Adicionar itens
@@ -252,44 +253,61 @@ export default function CheckoutPage() {
         <textarea
           id="observacao"
           className="input min-h-20"
-          maxLength={MAX_OBSERVACAO_PEDIDO - 100}
+          maxLength={MAX_OBSERVACAO_PEDIDO}
           value={observacao}
           onChange={(e) => setObservacao(e.target.value)}
           placeholder="Ex.: tocar o interfone"
         />
-        {carrinho.itens.some((i) => i.observacao.trim()) && (
-          <p className="mt-2 text-xs text-slate-400">
-            As observações de cada item do carrinho também vão para a loja.
-          </p>
-        )}
       </section>
 
       {/* Resumo */}
       <section className="card p-4 sm:p-6" aria-label="Resumo do pedido">
         <h2 className="mb-3 font-bold text-slate-800">Resumo</h2>
         <ul className="space-y-1 text-sm">
-          {carrinho.itens.map((i) => (
-            <li key={i.produtoId} className="flex justify-between gap-3">
-              <span className="min-w-0 text-slate-600">
-                {i.quantidade}× {i.descricao}
-              </span>
-              <span className="shrink-0 font-semibold text-slate-700">{formatBRL(i.preco * i.quantidade)}</span>
-            </li>
-          ))}
+          {carrinho.itens.map((i) => {
+            const calculado = previa?.itens.find((p) => p.produtoId === i.produtoId);
+            return (
+              <li key={i.produtoId} className="flex justify-between gap-3">
+                <span className="min-w-0 text-slate-600">
+                  {i.quantidade}× {i.descricao}
+                  {i.observacao.trim() && (
+                    <span className="block text-xs italic text-slate-400">Obs.: {i.observacao.trim()}</span>
+                  )}
+                </span>
+                <span className="shrink-0 font-semibold text-slate-700">
+                  {calculado ? formatBRL(calculado.subtotal) : '…'}
+                </span>
+              </li>
+            );
+          })}
         </ul>
-        <dl className="mt-3 space-y-1 border-t border-cream-200 pt-3 text-sm">
-          <Linha label="Subtotal" valor={formatBRL(subtotal)} />
-          <Linha label="Taxa de entrega" valor={entrega ? formatBRL(frete) : 'Retirada (grátis)'} />
+        {/* Valores calculados pela API (prévia); a criação recalcula e confere de novo. */}
+        <dl className="mt-3 space-y-1 border-t border-cream-200 pt-3 text-sm" aria-busy={calculando}>
+          <Linha label="Subtotal" valor={previa ? formatBRL(previa.subtotal) : '…'} />
+          <Linha
+            label="Taxa de entrega"
+            valor={!entrega ? 'Retirada (grátis)' : previa ? formatBRL(previa.frete) : '…'}
+          />
           <div className="flex justify-between pt-1 text-base font-bold text-slate-800">
             <dt>Total</dt>
-            <dd data-testid="total-checkout">{formatBRL(total)}</dd>
+            <dd data-testid="total-checkout">{previa ? formatBRL(previa.total) : 'Calculando…'}</dd>
           </div>
         </dl>
-        <p className="mt-2 text-xs font-bold text-strawberry-600">
-          {pontos > 0
-            ? `Você ganha ${formatPontos(pontos)} quando o pedido for concluído.`
-            : 'Este pedido não rende pontos.'}
-        </p>
+        {previa && (
+          <p className="mt-2 text-xs font-bold text-strawberry-600">
+            {previa.pontos > 0
+              ? `Você ganha ${formatPontos(previa.pontos)} quando o pedido for concluído.`
+              : 'Este pedido não rende pontos.'}
+          </p>
+        )}
+        {erroPrevia && (
+          <p role="alert" className="mt-3 text-sm font-semibold text-strawberry-700">
+            {erroPrevia}{' '}
+            <button type="button" className="underline" onClick={recalcular}>
+              Tentar de novo
+            </button>
+          </p>
+        )}
         {user && (
           <p className="mt-2 text-xs text-slate-400">
             A loja fala com você pelo telefone {user.telefone}.{' '}
@@ -310,7 +328,11 @@ export default function CheckoutPage() {
         <div className="mx-auto max-w-3xl">
           <button type="submit" className="btn-primary w-full py-3 text-base" disabled={!podeEnviar || enviando}>
             {enviando ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-            {enviando ? 'Enviando pedido…' : `Fazer pedido · ${formatBRL(total)}`}
+            {enviando
+              ? 'Enviando pedido…'
+              : previa
+                ? `Fazer pedido · ${formatBRL(previa.total)}`
+                : 'Fazer pedido'}
           </button>
           {!loja.aberta && (
             <p className="mt-1 text-center text-xs text-slate-500">A loja está fechada agora.</p>

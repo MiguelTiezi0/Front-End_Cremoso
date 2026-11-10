@@ -182,6 +182,9 @@ export default function PedidoDetalhePage() {
                   <p className="text-xs text-slate-400">
                     {item.quantidade} × {formatBRL(item.valorUnitario)}
                   </p>
+                  {item.observacao && (
+                    <p className="text-xs italic text-slate-500">Obs.: {item.observacao}</p>
+                  )}
                 </div>
                 <span className="text-sm font-bold text-slate-700">{formatBRL(item.subtotal)}</span>
               </li>
