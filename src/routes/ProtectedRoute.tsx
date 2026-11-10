@@ -32,10 +32,27 @@ export function ProtectedRoute({
   return <Outlet />;
 }
 
+// Página que o login/cadastro deve abrir depois (ex.: /checkout), guardada pelo
+// ProtectedRoute em location.state.from.
+// eslint-disable-next-line react-refresh/only-export-components
+export function destinoDepoisDoLogin(state: unknown): string {
+  return (state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
+}
+
 // Impede que usuários já autenticados vejam login/cadastro.
 export function PublicOnlyRoute() {
   const { isAuthenticated, initializing } = useAuth();
+  const location = useLocation();
   if (initializing) return <FullScreenLoader />;
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated) return <Navigate to={destinoDepoisDoLogin(location.state)} replace />;
+  return <Outlet />;
+}
+
+// Rotas públicas da loja (catálogo, produto, carrinho): abertas para visitante e cliente.
+// O admin não compra pelo app (a API recusa): volta para o painel.
+export function LojaRoute() {
+  const { isAdmin, initializing } = useAuth();
+  if (initializing) return <FullScreenLoader />;
+  if (isAdmin) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }

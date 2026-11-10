@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/Loaders';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { extractErrorMessage, maskTelefone } from '@/lib/format';
+import { destinoDepoisDoLogin } from '@/routes/ProtectedRoute';
 
 // Indicador simples de força da senha.
 function forcaSenha(senha: string): { label: string; pct: number; color: string } {
@@ -32,6 +33,8 @@ export default function CadastroPage() {
   const { register: registerUser } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const destino = destinoDepoisDoLogin(location.state);
   const [showPass, setShowPass] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -59,7 +62,7 @@ export default function CadastroPage() {
         senha: data.senha,
       });
       toast.success(`Conta criada com sucesso! Bem-vindo(a), ${user.nome.split(' ')[0]}!`);
-      navigate('/dashboard', { replace: true });
+      navigate(destino, { replace: true });
     } catch (err) {
       setApiError(extractErrorMessage(err, 'Não foi possível concluir o cadastro.'));
     }
@@ -161,7 +164,7 @@ export default function CadastroPage() {
 
         <p className="text-center text-sm text-slate-500">
           Já tem conta?{' '}
-          <Link to="/login" className="font-bold text-blueberry-600 hover:underline">
+          <Link to="/login" state={location.state} className="font-bold text-blueberry-600 hover:underline">
             Entrar
           </Link>
         </p>

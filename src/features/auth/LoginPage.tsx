@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/Loaders';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { extractErrorMessage } from '@/lib/format';
+import { destinoDepoisDoLogin } from '@/routes/ProtectedRoute';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -19,7 +20,7 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
+  const from = destinoDepoisDoLogin(location.state);
 
   const {
     register,
@@ -95,9 +96,16 @@ export default function LoginPage() {
           Entrar
         </button>
 
+        {from === '/checkout' && (
+          <p className="rounded-xl bg-blueberry-50 px-4 py-3 text-sm font-semibold text-blueberry-700">
+            Entre para finalizar o pedido. Seu carrinho continua salvo.
+          </p>
+        )}
+
         <p className="text-center text-sm text-slate-500">
           Ainda não tem conta?{' '}
-          <Link to="/cadastro" className="font-bold text-blueberry-600 hover:underline">
+          {/* Leva junto a página pretendida: cadastro rápido e volta para o checkout. */}
+          <Link to="/cadastro" state={location.state} className="font-bold text-blueberry-600 hover:underline">
             Cadastre-se
           </Link>
         </p>
