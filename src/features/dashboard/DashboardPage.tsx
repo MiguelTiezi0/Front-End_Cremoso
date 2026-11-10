@@ -8,8 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { categoriaService, produtoService } from '@/api/catalogoService';
 import { pedidoService } from '@/api/pedidoService';
 import { DISPONIVEL } from '@/config/mock';
-import type { Pedido, Produto } from '@/types';
-import { extractErrorMessage, formatBRL, formatData, formatPontos } from '@/lib/format';
+import type { PedidoResumo, Produto } from '@/types';
+import { SEM_PONTOS, extractErrorMessage, formatBRL, formatData, formatPontos } from '@/lib/format';
 
 // Destaques: os 4 produtos ativos com estoque mais recentes (id decrescente).
 const destaques = (ativos: Produto[]): Produto[] =>
@@ -28,7 +28,7 @@ function ClienteDashboard() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loadingProdutos, setLoadingProdutos] = useState(true);
   const [erroProdutos, setErroProdutos] = useState<string | null>(null);
-  const [ultimoPedido, setUltimoPedido] = useState<Pedido | null>(null);
+  const [ultimoPedido, setUltimoPedido] = useState<PedidoResumo | null>(null);
 
   // Destaques e último pedido carregam separados: se um falhar, o outro continua na tela.
   // Só faz setState nos callbacks da promise; devolve a função que cancela a atualização.
@@ -80,7 +80,11 @@ function ClienteDashboard() {
             <p className="text-xs font-semibold uppercase tracking-wide text-blueberry-100">
               Saldo de pontos
             </p>
-            <p className="text-2xl font-bold">{formatPontos(user?.saldoPontos ?? 0)}</p>
+            {user?.saldoPontos ? (
+              <p className="text-2xl font-bold">{formatPontos(user.saldoPontos)}</p>
+            ) : (
+              <p className="max-w-44 text-sm font-semibold">{SEM_PONTOS}</p>
+            )}
           </div>
         </div>
       </section>

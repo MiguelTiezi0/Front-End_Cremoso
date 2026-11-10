@@ -87,9 +87,11 @@ export function AtivoBadge({ ativo }: { ativo: boolean }) {
 
 const STATUS_STYLE: Record<StatusPedido, string> = {
   RECEBIDO: 'bg-blueberry-100 text-blueberry-600',
+  ACEITO: 'bg-blueberry-100 text-blueberry-700',
   EM_PREPARO: 'bg-cream-200 text-amber-700',
+  PRONTO: 'bg-mint-100 text-mint-600',
   SAIU_PARA_ENTREGA: 'bg-strawberry-100 text-strawberry-700',
-  ENTREGUE: 'bg-mint-100 text-mint-600',
+  CONCLUIDO: 'bg-mint-100 text-mint-600',
   CANCELADO: 'bg-slate-100 text-slate-500',
 };
 

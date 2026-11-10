@@ -14,6 +14,9 @@ export const formatDataHora = (iso: string): string =>
     new Date(iso),
   );
 
+// Saldo zero: em vez de "0 pts", explica como ganhar.
+export const SEM_PONTOS = 'Você ganha pontos a cada pedido concluído';
+
 // null (pontos opcionais no contrato) vira "—".
 export const formatPontos = (n: number | null): string =>
   n === null ? SEM_VALOR : `${new Intl.NumberFormat('pt-BR').format(n)} pts`;

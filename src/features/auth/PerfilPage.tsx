@@ -14,7 +14,7 @@ import { useToast } from '@/context/ToastContext';
 import { authService } from '@/api/authService';
 import { pedidoService } from '@/api/pedidoService';
 import { DISPONIVEL } from '@/config/mock';
-import type { Pedido } from '@/types';
+import type { PedidoResumo } from '@/types';
 import { extractErrorMessage, formatBRL, formatData, maskTelefone } from '@/lib/format';
 
 export default function PerfilPage() {
@@ -22,7 +22,7 @@ export default function PerfilPage() {
   // Histórico de pedidos: só para cliente e só com o módulo de pedidos disponível.
   const comHistorico = !isAdmin && DISPONIVEL.pedidos;
   const toast = useToast();
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [pedidos, setPedidos] = useState<PedidoResumo[]>([]);
   // Admin não tem histórico de pedidos: nem chega a carregar.
   const [loadingPedidos, setLoadingPedidos] = useState(comHistorico);
   const [erroPedidos, setErroPedidos] = useState<string | null>(null);
@@ -181,7 +181,7 @@ export default function PerfilPage() {
                       <div>
                         <p className="text-sm font-bold text-slate-700">Pedido #{p.id}</p>
                         <p className="text-xs text-slate-400">
-                          {formatData(p.data)} · {p.itens.length} item(ns)
+                          {formatData(p.data)} · {p.quantidadeItens} {p.quantidadeItens === 1 ? 'item' : 'itens'}
                         </p>
                       </div>
                       <div className="text-right">
