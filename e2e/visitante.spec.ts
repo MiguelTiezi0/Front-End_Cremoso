@@ -1,4 +1,4 @@
-import { API_URL, CLIENTE, RUN, apiToken, expect, loginUI, test } from './fixtures';
+import { ACEITE, API_URL, CLIENTE, RUN, apiToken, expect, loginUI, test } from './fixtures';
 
 // O <label>Telefone</label> agora está associado ao input (id/name).
 const telefoneInput = (page: import('@playwright/test').Page) => page.getByLabel('Telefone');
@@ -13,6 +13,7 @@ async function preencherCadastro(
   await telefoneInput(page).pressSequentially(dados.telefone);
   await page.getByLabel('Senha', { exact: true }).fill(dados.senha);
   await page.getByLabel('Confirmar senha').fill(dados.senha);
+  await page.getByLabel(/Li e aceito a política de privacidade/).check();
   await page.getByRole('button', { name: 'Criar conta' }).click();
 }
 
@@ -87,7 +88,7 @@ test.describe('Visitante', () => {
 
     // .online também passa no front e no back
     const online = await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Online', email: `x${RUN}@cremoso.online`, telefone: '11 98765 4321', senha: 'Senha123' },
+      data: { nome: 'Online', email: `x${RUN}@cremoso.online`, telefone: '11 98765 4321', senha: 'Senha123', ...ACEITE },
     });
     expect(online.status()).toBe(200);
   });
@@ -102,6 +103,7 @@ test.describe('Visitante', () => {
     await telefoneInput(page).pressSequentially('1134567890'); // fixo: 10 dígitos
     await page.getByLabel('Senha', { exact: true }).fill('somenteletras');
     await page.getByLabel('Confirmar senha').fill('somenteletras');
+    await page.getByLabel(/Li e aceito a política de privacidade/).check();
     await page.getByRole('button', { name: 'Criar conta' }).click();
 
     await expect(page.getByText('Informe um celular com DDD, ex.: (11) 91234-5678')).toBeVisible();
@@ -110,14 +112,14 @@ test.describe('Visitante', () => {
 
     // E o back recusa as mesmas entradas com as mensagens dele
     const r = await page.request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Regras Iguais', email: `regras${RUN}@teste.com`, telefone: '(11) 3456-7890', senha: 'Senha123' },
+      data: { nome: 'Regras Iguais', email: `regras${RUN}@teste.com`, telefone: '(11) 3456-7890', senha: 'Senha123', ...ACEITE },
     });
     expect(r.status()).toBe(400);
     expect(await r.json()).toEqual({
       message: 'Telefone inválido. Informe um celular com DDD, ex.: (11) 91234-5678',
     });
     const s = await page.request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Regras Iguais', email: `regras${RUN}@teste.com`, telefone: '11987654321', senha: 'somenteletras' },
+      data: { nome: 'Regras Iguais', email: `regras${RUN}@teste.com`, telefone: '11987654321', senha: 'somenteletras', ...ACEITE },
     });
     expect(await s.json()).toEqual({ message: 'Senha deve conter pelo menos uma letra e um número.' });
   });

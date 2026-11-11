@@ -11,8 +11,12 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { VERSAO_TERMOS } from '../src/config/termos';
 
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8080/api';
+
+// Aceite da política de privacidade e das regras dos pontos (obrigatório no cadastro).
+export const ACEITE = { aceiteTermos: true, versaoTermos: VERSAO_TERMOS };
 
 export const CLIENTE = {
   email: process.env.E2E_CLIENTE_EMAIL ?? 'cliente@cremoso.com',
@@ -145,7 +149,7 @@ export async function apiNovoCliente(request: APIRequestContext, prefixo: string
   const email = `${prefixo}${RUN}${Math.floor(Math.random() * 1e4)}@teste.com`;
   const senha = 'Senha123';
   const res = await request.post(`${API_URL}/auth/register`, {
-    data: { nome: `Cliente ${prefixo}`, email, telefone: '11987654321', senha },
+    data: { nome: `Cliente ${prefixo}`, email, telefone: '11987654321', senha, ...ACEITE },
   });
   expect(res.ok(), `cadastro de ${email}`).toBeTruthy();
   return { email, senha };
@@ -220,7 +224,10 @@ export async function confirmarPixNoPainel(painel: Page, id: number) {
 
 /** Painel: um toque no botão de mudança de status do card. */
 export async function botaoNoPainel(painel: Page, id: number, nome: string) {
-  await cardDoPedido(painel, id).getByRole('button', { name: nome, exact: true }).click();
+  const botao = cardDoPedido(painel, id).getByRole('button', { name: nome, exact: true });
+  await botao.click();
+  // O botão some quando a API responde (o status mudou): só então o teste segue.
+  await expect(botao).toHaveCount(0);
 }
 
 /** Painel: cancela pedindo o motivo na própria tela. */

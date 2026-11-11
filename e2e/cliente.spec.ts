@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import {
+  ACEITE,
   ADMIN,
   API_URL,
   CLIENTE,
@@ -58,7 +59,7 @@ test.describe('Cliente', () => {
   }) => {
     const email = `sessao${RUN}@teste.com`;
     await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Sessao Antiga', email, telefone: '11911110000', senha: 'Senha123' },
+      data: { nome: 'Sessao Antiga', email, telefone: '11911110000', senha: 'Senha123', ...ACEITE },
     });
     await loginUI(page, email, 'Senha123');
     await expect(page.getByText('Olá, Sessao')).toBeVisible();
@@ -235,7 +236,7 @@ test.describe('Cliente', () => {
 
     const email = `pontos${RUN}@teste.com`;
     await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Pontos Real', email, telefone: '11933334444', senha: 'Senha123' },
+      data: { nome: 'Pontos Real', email, telefone: '11933334444', senha: 'Senha123', ...ACEITE },
     });
     // Conta nova tem 0 pontos: simulamos só o saldo para provar que a tela usa a API.
     await page.route(`${API_URL}/pontos/saldo`, (route) => route.fulfill({ json: { saldo: 500 } }));
@@ -276,7 +277,7 @@ test.describe('Cliente', () => {
   }) => {
     const email = `perfil${RUN}@teste.com`;
     const reg = await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Perfil Original', email, telefone: '(11) 91111-1111', senha: 'Senha123' },
+      data: { nome: 'Perfil Original', email, telefone: '(11) 91111-1111', senha: 'Senha123', ...ACEITE },
     });
     expect(reg.ok()).toBeTruthy();
 
@@ -330,7 +331,7 @@ test.describe('Cliente', () => {
   }) => {
     const email = `conflito${RUN}@teste.com`;
     await request.post(`${API_URL}/auth/register`, {
-      data: { nome: 'Conflito Teste', email, telefone: '(11) 91111-1111', senha: 'Senha123' },
+      data: { nome: 'Conflito Teste', email, telefone: '(11) 91111-1111', senha: 'Senha123', ...ACEITE },
     });
     await loginUI(page, email, 'Senha123');
     await expect(page).toHaveURL(/\/dashboard$/);

@@ -185,6 +185,7 @@ test.describe('Checkout', () => {
     await page.getByLabel('Telefone').pressSequentially('11987654321');
     await page.getByLabel('Senha', { exact: true }).fill('Senha123');
     await page.getByLabel('Confirmar senha').fill('Senha123');
+    await page.getByLabel(/Li e aceito a política de privacidade/).check();
     await page.getByRole('button', { name: 'Criar conta' }).click();
 
     await expect(page).toHaveURL(/\/checkout$/);
