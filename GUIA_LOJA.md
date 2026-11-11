@@ -124,12 +124,27 @@ retirada ou entrega (com endereço e CEP).
    deixar o dia fechado.
 3. Toque em **"Salvar configurações"**.
 
-O horário não pode passar da meia-noite. **Para parar de receber pedidos hoje** (por exemplo,
-acabou tudo), tire o horário de hoje e salve; depois coloque de volta.
+O horário não pode passar da meia-noite. Para parar de receber pedidos só por um tempo, não
+mexa no horário: use o botão **"Pausar pedidos"** (item 9).
 
 ---
 
-## 9. O painel parou de atualizar
+## 9. Pausar pedidos (cozinha cheia, acabou tudo, imprevisto)
+
+No topo da tela **Pedidos**:
+
+- **"Pausar pedidos"**: um toque e a loja para de receber pedidos na hora, até você reabrir.
+- **"Pausar 30 min"** ou **"Pausar 1 hora"**: a loja volta sozinha no horário mostrado.
+
+Enquanto estiver pausado, aparece uma faixa vermelha *"Pedidos pausados…"*. O cliente vê
+**"Pausado no momento"** no cardápio e não consegue fazer pedido. Os pedidos que já estavam na
+fila continuam normalmente.
+
+Para voltar a receber pedidos: toque em **"Reabrir pedidos"**.
+
+---
+
+## 10. O painel parou de atualizar
 
 Se aparecer uma faixa vermelha *"Sem conexão… Tentando de novo sozinho"*:
 

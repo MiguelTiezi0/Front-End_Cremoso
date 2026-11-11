@@ -81,6 +81,9 @@ mostra este bloco em modo dev (`npm run dev`).
 - **Notificações** — central com sino/contador no header, marcar como lida / todas como lidas (polling a cada 30s só para clientes; depois de um erro espaça para 2–10 min).
 
 ### Painel da loja (admin) — feito para um celular ou tablet fixo no balcão
+- **Pausar pedidos** (no topo de `/admin/pedidos`) — um toque fecha a loja na hora até
+  reabrir; "Pausar 30 min" e "Pausar 1 hora" voltam sozinhas. O cardápio mostra "Pausado no
+  momento" e a API recusa pedidos; "Reabrir pedidos" reabre.
 - **Pedidos** (`/admin/pedidos`) — abas Novos (`RECEBIDO`), Aceitos / aguardando Pix,
   Em preparo, Prontos / saiu e Concluídos de hoje; os ativos de qualquer dia ficam na fila.
   Pedido novo em destaque, com hora e tempo de espera. Atualiza a cada 10 s (backoff de

@@ -5,9 +5,8 @@ repositório (Vercel). Marque cada item. Nada aqui foi executado: é o roteiro.
 
 ## 0. Antes
 
-- [ ] `entrega-2-pedidos` revisada e mesclada na branch de produção dos dois repositórios
-      (o passo a passo do Render no README do backend cita a branch `migracao-python`: use a
-      branch que de fato vai para produção).
+- [ ] Branch de produção definida nos dois repositórios: o passo a passo do Render no README
+      do backend usa `entrega-2-pedidos`, que já contém a migração para Python e a Entrega 2.
 - [ ] Suítes verdes no commit que vai subir (ver `TESTE_ENTREGA2.md`).
 - [ ] Textos de `/privacidade` e `/regras-pontos` revisados (item 6). **Não publique com
       "[REVISAR ANTES DE PUBLICAR]" na tela.**
@@ -37,9 +36,9 @@ repositório (Vercel). Marque cada item. Nada aqui foi executado: é o roteiro.
   | `JWT_EXPIRATION_SECONDS` | opcional (padrão 86400) |
 
 - [ ] **Não** definir `SEED_*` nem `PORT` em produção.
-- [ ] Log do deploy mostra as migrations até a **0005**: `0001 schema inicial`, `0002 lojas`,
-      `0003 pedidos e pontos`, `0004 observação por item`, `0005 aceite dos termos`; depois o
-      uvicorn no ar. Se a migration falhar, o servidor não sobe.
+- [ ] Log do deploy mostra as migrations até a **0006**: `0001 schema inicial`, `0002 lojas`,
+      `0003 pedidos e pontos`, `0004 observação por item`, `0005 aceite dos termos`,
+      `0006 pausa por tempo`; depois o uvicorn no ar. Se a migration falhar, o servidor não sobe.
 - [ ] `https://<servico>.onrender.com/api/health` → `{"status":"ok"}`.
 
 ## 3. Front (Vercel)
@@ -98,6 +97,9 @@ Use o celular ou tablet que vai ficar no balcão e um celular de cliente.
       DEVOLVIDO"; o cliente vê "Pagamento devolvido".
 - [ ] **Pix vencido:** deixar um pedido sem pagar por 15 min; ele cancela sozinho; pagar e
       confirmar pela seção "Pix vencido — ainda dá pra confirmar".
+- [ ] **Pausar pedidos:** "Pausar pedidos" no painel; no celular do cliente aparece "Pausado no
+      momento" e o pedido é recusado; "Reabrir pedidos" volta ao normal. Teste também "Pausar 30
+      min" e confira que a loja volta sozinha.
 - [ ] **Esgotado e horário:** marcar um produto esgotado e ver no celular do cliente; mudar o
       horário e ver "Fechado, abre às …".
 - [ ] **Queda de internet:** desligar o Wi-Fi do balcão por 1 min e religar: o painel avisa e
