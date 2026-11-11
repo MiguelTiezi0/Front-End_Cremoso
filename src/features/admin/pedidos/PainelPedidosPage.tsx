@@ -14,6 +14,7 @@ import { dataNoFuso, horaNoFuso } from '@/lib/loja';
 import { ABAS, pixTardioAberto, precisaDevolver, type Aba } from '@/lib/painel';
 import { proximoIntervalo } from '@/lib/polling';
 import { Comanda } from './Comanda';
+import { PausaPedidos } from './PausaPedidos';
 import { PedidoCard } from './PedidoCard';
 
 const INTERVALO_PAINEL_MS = 10_000;
@@ -144,6 +145,8 @@ export default function PainelPedidosPage() {
           </button>
         }
       />
+
+      <PausaPedidos agora={agora} />
 
       {/* Som e tela */}
       {som.ativo ? (

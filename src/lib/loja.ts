@@ -41,8 +41,10 @@ export function statusLojaTexto(loja: Loja, agora = new Date()): StatusLojaTexto
     case 'PAUSADA':
       return {
         aberta: false,
-        titulo: 'Fechado no momento',
-        detalhe: 'A loja pausou os pedidos por alguns instantes. Tente de novo em breve.',
+        titulo: 'Pausado no momento',
+        detalhe: loja.pausadaAte
+          ? `A loja volta a receber pedidos às ${horaNoFuso(new Date(loja.pausadaAte))}.`
+          : 'A loja pausou os pedidos por alguns instantes. Tente de novo em breve.',
       };
     case 'PAGAMENTO_NAO_CONFIGURADO':
       // A API só abre a loja com o Pix configurado (sem Pix não há como pagar).

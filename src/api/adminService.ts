@@ -75,6 +75,13 @@ export const adminLojaService = {
     const { data } = await api.get<LojaConfig>('/admin/loja');
     return data;
   },
+  // "Pausar pedidos": minutos = pausa por tempo (a loja volta sozinha); sem minutos, até
+  // reabrir. pausada=false reabre na hora.
+  async pausar(pausada: boolean, minutos?: number): Promise<LojaConfig> {
+    if (MOCK.loja) return (await mock()).adminPausarLoja(pausada, minutos);
+    const { data } = await api.patch<LojaConfig>('/admin/loja/pausa', { pausada, minutos });
+    return data;
+  },
   async salvar(input: LojaConfigInput): Promise<LojaConfig> {
     if (MOCK.loja) return (await mock()).adminSalvarLoja(input);
     const { data } = await api.put<LojaConfig>('/admin/loja', input);

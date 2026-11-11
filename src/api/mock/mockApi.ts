@@ -101,6 +101,13 @@ const lojaConfig = (): LojaConfigInput =>
 
 const pixConfigurado = (c: LojaConfigInput) => !!(c.pixChave && c.pixNomeRecebedor && c.pixCidade);
 
+// "Pausar pedidos" no mock: guardado só na memória da aba (some ao recarregar).
+let pausa: { ate: string | null } | null = null;
+function pausaAtual(): { pausada: boolean; pausadaAte: string | null } {
+  if (pausa?.ate && Date.now() >= Date.parse(pausa.ate)) pausa = null;
+  return { pausada: !!pausa, pausadaAte: pausa?.ate ?? null };
+}
+
 const TRANSICOES: Record<StatusPedido, StatusPedido[]> = {
   RECEBIDO: ['ACEITO', 'CANCELADO'],
   ACEITO: ['EM_PREPARO', 'CANCELADO'],
@@ -387,6 +394,7 @@ export const mockApi = {
     if (repetido) return structuredClone(repetido);
 
     const loja = lojaConfig();
+    if (pausaAtual().pausada) apiError(409, 'A loja pausou os pedidos. Tente de novo em breve.', 'LOJA_FECHADA');
     const itens = novo.itens.map(({ produtoId, quantidade, observacao }) => {
       const produto = db.produtos.find((p) => p.id === produtoId && p.ativo);
       if (!produto || produto.quantidade <= 0 || produto.esgotado) {
@@ -507,7 +515,7 @@ export const mockApi = {
     const subtotal = centavos(itens.reduce((s, i) => s + i.subtotal, 0));
     const frete = entrega ? loja.taxaEntrega : 0;
     const falta = entrega && loja.pedidoMinimo !== null ? Math.max(0, centavos(loja.pedidoMinimo - subtotal)) : 0;
-    const aberta = pixConfigurado(loja);
+    const aberta = pixConfigurado(loja) && !pausaAtual().pausada;
     return {
       tipoEntrega: input.tipoEntrega,
       itens,
@@ -520,7 +528,7 @@ export const mockApi = {
       atingeMinimo: falta === 0,
       faltaParaMinimo: falta,
       lojaAberta: aberta,
-      motivoFechada: aberta ? null : 'PAGAMENTO_NAO_CONFIGURADO',
+      motivoFechada: aberta ? null : pausaAtual().pausada ? 'PAUSADA' : 'PAGAMENTO_NAO_CONFIGURADO',
       podeFinalizar: aberta && itens.length > 0 && recusados.length === 0 && falta === 0,
     };
   },
@@ -546,13 +554,15 @@ export const mockApi = {
   async getLoja(): Promise<Loja> {
     await delay(150);
     const c = lojaConfig();
-    const aberta = pixConfigurado(c);
+    const { pausada, pausadaAte } = pausaAtual();
+    const aberta = pixConfigurado(c) && !pausada;
     return structuredClone({
       ...seedLoja,
       nome: c.nome,
       cidade: c.cidade,
       aberta,
-      motivoFechada: aberta ? null : 'PAGAMENTO_NAO_CONFIGURADO',
+      motivoFechada: aberta ? null : pausada ? 'PAUSADA' : 'PAGAMENTO_NAO_CONFIGURADO',
+      pausadaAte,
       horarios: c.horarios,
       entregaAtiva: c.entregaAtiva,
       taxaEntrega: c.taxaEntrega,
@@ -567,9 +577,15 @@ export const mockApi = {
     const c = lojaConfig();
     return structuredClone({
       ...c,
-      pausada: false,
+      ...pausaAtual(),
       pixExemplo: pixConfigurado(c) ? 'MODO-DEMONSTRACAO-PIX-DE-TESTE-SEM-VALOR' : null,
     });
+  },
+
+  async adminPausarLoja(pausada: boolean, minutos?: number): Promise<LojaConfig> {
+    await delay(200);
+    pausa = pausada ? { ate: minutos ? new Date(Date.now() + minutos * 60_000).toISOString() : null } : null;
+    return mockApi.adminGetLoja();
   },
 
   async adminSalvarLoja(input: LojaConfigInput): Promise<LojaConfig> {

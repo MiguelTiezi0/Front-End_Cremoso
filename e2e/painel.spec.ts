@@ -466,6 +466,55 @@ test.describe('Painel da loja', () => {
     );
   });
 
+  test('pausar pedidos: um toque fecha a loja na hora, outro reabre; pausa por tempo mostra a volta', async ({
+    page,
+    request,
+    browser,
+  }, testInfo) => {
+    test.slow();
+    const headers = { Authorization: `Bearer ${admin}` };
+    const produto = await novoProduto(request, 'Pausa');
+    const conta = await apiNovoCliente(request, 'pausa');
+    const token = await apiToken(request, conta.email, conta.senha);
+    const tentarPedido = () =>
+      request.post(`${API_URL}/pedidos`, {
+        headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': crypto.randomUUID() },
+        data: { tipoEntrega: 'RETIRADA', formaPagamento: 'PIX', itens: [{ produtoId: produto.id, quantidade: 1 }] },
+      });
+    const painel = await abrirPainel(browser, testInfo);
+    try {
+      // Até reabrir: um toque.
+      await painel.getByRole('button', { name: 'Pausar pedidos', exact: true }).click();
+      const pausado = painel.getByRole('status', { name: 'Pedidos pausados' });
+      await expect(pausado).toContainText('Pedidos pausados até você reabrir.');
+
+      await page.goto('/catalogo');
+      await expect(page.getByTestId('status-loja')).toContainText('Pausado no momento');
+      const recusa = await tentarPedido();
+      expect(recusa.status()).toBe(409);
+      expect(await recusa.json()).toMatchObject({ codigo: 'LOJA_FECHADA', motivoFechada: 'PAUSADA' });
+
+      // Reabrir: outro toque.
+      await pausado.getByRole('button', { name: 'Reabrir pedidos' }).click();
+      await expect(pausado).toHaveCount(0);
+      await page.reload();
+      await expect(page.getByTestId('status-loja')).toContainText('Aberto agora');
+      expect((await tentarPedido()).status()).toBe(201);
+
+      // Por tempo: mostra até que horas, no painel e no cardápio.
+      await painel.getByRole('button', { name: 'Pausar 30 min' }).click();
+      await expect(pausado).toContainText(/Pedidos pausados até as \d\d:\d\d\./);
+      const config = await (await request.get(`${API_URL}/admin/loja`, { headers })).json();
+      expect(Date.parse(config.pausadaAte) - Date.now()).toBeGreaterThan(28 * 60_000);
+      await page.reload();
+      await expect(page.getByTestId('status-loja')).toContainText(/A loja volta a receber pedidos às \d\d:\d\d\./);
+      await pausado.getByRole('button', { name: 'Reabrir pedidos' }).click();
+      await expect(pausado).toHaveCount(0);
+    } finally {
+      await request.patch(`${API_URL}/admin/loja/pausa`, { headers, data: { pausada: false } });
+    }
+  });
+
   test('no celular (390×844) o painel cabe sem rolagem horizontal', async ({ request, browser }, testInfo) => {
     test.slow();
     const produto = await novoProduto(request, 'Celular Painel');

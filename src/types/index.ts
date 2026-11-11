@@ -129,6 +129,7 @@ export interface Loja {
   aberta: boolean;
   motivoFechada: MotivoLojaFechada | null;
   proximaAbertura: string | null; // ISO com fuso da loja
+  pausadaAte?: string | null; // "Pausar pedidos" por tempo: quando volta (ISO)
   horarios: HorarioLoja[];
   entregaAtiva: boolean;
   taxaEntrega: number;
@@ -341,7 +342,8 @@ export interface LojaConfigInput {
 }
 
 export interface LojaConfig extends LojaConfigInput {
-  pausada: boolean;
+  pausada: boolean; // "Pausar pedidos" valendo agora
+  pausadaAte: string | null; // fim da pausa por tempo; null = até reabrir
   pixExemplo: string | null; // Pix de R$ 0,01 para testar a chave no app do banco
 }
 
