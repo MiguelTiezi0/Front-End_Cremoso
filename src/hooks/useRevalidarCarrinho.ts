@@ -27,7 +27,18 @@ export function useRevalidarCarrinho() {
       const { categorias } = await lojaService.cardapio();
       const resultado = revalidar(itensRef.current, produtosDoCardapio(categorias));
       substituir(resultado.itens);
-      setAvisos(resultado.avisos);
+      // Duas conferências ao mesmo tempo (StrictMode em dev, ou o checkout pedindo de novo):
+      // a segunda já vê o preço atualizado pela primeira e não acharia mudança. O aviso de
+      // preço continua enquanto o preço for o mesmo que foi avisado.
+      setAvisos((anteriores) => [
+        ...resultado.avisos,
+        ...anteriores.filter(
+          (a) =>
+            a.tipo === 'PRECO' &&
+            !resultado.avisos.some((n) => n.produtoId === a.produtoId) &&
+            resultado.itens.some((i) => i.produtoId === a.produtoId && i.preco === a.precoAtual),
+        ),
+      ]);
       setErro(null);
       return resultado.avisos;
     } catch (e) {
