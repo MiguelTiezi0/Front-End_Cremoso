@@ -18,6 +18,7 @@ import { DISPONIVEL } from '@/config/mock';
 import { useAuth } from '@/context/AuthContext';
 import { useCarrinho } from '@/context/CarrinhoContext';
 import { AvisoLojaSemPix } from './AvisoLojaSemPix';
+import { RodapeLegal } from './RodapeLegal';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 import { UserMenu } from './UserMenu';
@@ -119,6 +120,8 @@ export function AppLayout() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
+
+      <RodapeLegal />
     </div>
   );
 }

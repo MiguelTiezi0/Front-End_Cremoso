@@ -26,6 +26,8 @@ const CategoriasPage = lazy(() => import('./features/admin/CategoriasPage'));
 const PainelPedidosPage = lazy(() => import('./features/admin/pedidos/PainelPedidosPage'));
 const LojaConfigPage = lazy(() => import('./features/admin/LojaConfigPage'));
 const NotFoundPage = lazy(() => import('./features/NotFoundPage'));
+const PrivacidadePage = lazy(() => import('./features/legal/PrivacidadePage'));
+const RegrasPontosPage = lazy(() => import('./features/legal/RegrasPontosPage'));
 
 export default function App() {
   return (
@@ -45,6 +47,12 @@ export default function App() {
             <Route path="/produto/:id" element={<ProdutoDetalhePage />} />
             <Route path="/carrinho" element={<CarrinhoPage />} />
           </Route>
+        </Route>
+
+        {/* Textos públicos (qualquer um, logado ou não) */}
+        <Route element={<AppLayout />}>
+          <Route path="/privacidade" element={<PrivacidadePage />} />
+          <Route path="/regras-pontos" element={<RegrasPontosPage />} />
         </Route>
 
         {/* Rotas protegidas (exigem login) */}

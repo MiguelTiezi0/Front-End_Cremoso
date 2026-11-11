@@ -337,6 +337,17 @@ export default function CheckoutPage() {
           {!loja.aberta && (
             <p className="mt-1 text-center text-xs text-slate-500">A loja está fechada agora.</p>
           )}
+          <p className="mt-1 text-center text-xs text-slate-400">
+            Veja a{' '}
+            <Link to="/privacidade" target="_blank" className="underline">
+              política de privacidade
+            </Link>{' '}
+            e as{' '}
+            <Link to="/regras-pontos" target="_blank" className="underline">
+              regras dos pontos
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </form>

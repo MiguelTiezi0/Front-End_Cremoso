@@ -36,6 +36,9 @@ export const registerSchema = z
     telefone,
     senha: senhaForte,
     confirmarSenha: z.string().min(1, 'Confirme a senha'),
+    aceiteTermos: z.boolean().refine((v) => v, {
+      message: 'Para criar a conta, aceite a política de privacidade e as regras dos pontos.',
+    }),
   })
   .refine((d) => d.senha === d.confirmarSenha, {
     message: 'As senhas não conferem',

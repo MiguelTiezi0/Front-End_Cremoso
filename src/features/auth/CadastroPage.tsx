@@ -8,6 +8,7 @@ import { registerSchema, type RegisterForm } from './validation';
 import { TextInput } from '@/components/ui/FormField';
 import { Spinner } from '@/components/ui/Loaders';
 import { useAuth } from '@/context/AuthContext';
+import { VERSAO_TERMOS } from '@/config/termos';
 import { useToast } from '@/context/ToastContext';
 import { extractErrorMessage, maskTelefone } from '@/lib/format';
 import { destinoDepoisDoLogin } from '@/routes/ProtectedRoute';
@@ -60,6 +61,8 @@ export default function CadastroPage() {
         email: data.email,
         telefone: data.telefone,
         senha: data.senha,
+        aceiteTermos: data.aceiteTermos,
+        versaoTermos: VERSAO_TERMOS,
       });
       toast.success(`Conta criada com sucesso! Bem-vindo(a), ${user.nome.split(' ')[0]}!`);
       navigate(destino, { replace: true });
@@ -156,6 +159,35 @@ export default function CadastroPage() {
           error={errors.confirmarSenha?.message}
           {...register('confirmarSenha')}
         />
+
+        <div>
+          <label className="flex items-start gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 text-blueberry-600 focus:ring-blueberry-300"
+              aria-invalid={!!errors.aceiteTermos}
+              aria-describedby={errors.aceiteTermos ? 'aceite-erro' : undefined}
+              {...register('aceiteTermos')}
+            />
+            <span>
+              Li e aceito a{' '}
+              {/* Nova aba: o formulário preenchido não se perde. */}
+              <Link to="/privacidade" target="_blank" className="font-bold text-blueberry-600 underline">
+                política de privacidade
+              </Link>{' '}
+              e as{' '}
+              <Link to="/regras-pontos" target="_blank" className="font-bold text-blueberry-600 underline">
+                regras dos pontos
+              </Link>
+              .
+            </span>
+          </label>
+          {errors.aceiteTermos && (
+            <p id="aceite-erro" className="mt-1 text-xs font-semibold text-strawberry-600">
+              {errors.aceiteTermos.message}
+            </p>
+          )}
+        </div>
 
         <button type="submit" className="btn-primary w-full" disabled={isSubmitting}>
           {isSubmitting ? <Spinner className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}

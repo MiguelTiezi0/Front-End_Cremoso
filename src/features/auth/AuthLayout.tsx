@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { IceCream, Sparkles, Star } from 'lucide-react';
 import { Logo } from '@/components/layout/Logo';
+import { RodapeLegal } from '@/components/layout/RodapeLegal';
 
 // Layout de duas colunas para telas de login/cadastro (mobile-first: empilha no celular).
 export function AuthLayout({
@@ -51,6 +52,7 @@ export function AuthLayout({
           <h2 className="text-2xl font-bold text-slate-800">{title}</h2>
           <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
           <div className="mt-6">{children}</div>
+          <RodapeLegal />
         </div>
       </div>
     </div>

@@ -81,6 +81,9 @@ export interface RegisterPayload {
   email: string;
   telefone: string;
   senha: string;
+  // "Li e aceito a política de privacidade e as regras dos pontos" + versão do texto.
+  aceiteTermos: boolean;
+  versaoTermos: string;
 }
 
 export interface PerfilUpdatePayload {
