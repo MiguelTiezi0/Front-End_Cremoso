@@ -18,6 +18,23 @@ Postgres 18. A suíte do Playwright rodou em três partes seguidas (base + termo
 painel + dia real), com o mesmo servidor e o mesmo banco, porque a máquina estava com pouca
 memória livre: numa rodada única anterior o processo foi encerrado pelo sistema.
 
+## Rodada antes do deploy (11/11/2026, com "Pausar pedidos")
+
+Depois do botão "Pausar pedidos" (migration 0006) e da troca da branch no README do backend,
+com o banco de e2e recriado do zero:
+
+| O quê | Resultado |
+|---|---|
+| Backend, SQLite | **499 passaram**, 1 pulado (o de concorrência, só no Postgres) |
+| Backend, Postgres 18 | **500 passaram** |
+| Front, lint / build / `test:build` | 0 erros (3 avisos antigos) / ok / 4 de 4 |
+| Playwright, completo (9 arquivos, em 3 partes) | **86 passaram**, 1 pulado (token expirado) |
+
+O teste novo (`painel.spec.ts`, "pausar pedidos") confere: um toque pausa, o cardápio mostra
+"Pausado no momento" e a API recusa (`LOJA_FECHADA`, `motivoFechada: PAUSADA`); "Reabrir
+pedidos" volta ao normal e um pedido passa; "Pausar 30 min" mostra no painel e no cardápio a
+hora da volta. No backend, a pausa de 30 min termina sozinha (relógio controlado no teste).
+
 ## O "dia real" (`e2e/dia-real.spec.ts`)
 
 Cliente no celular (390×844) e painel no tablet do balcão (820×1180), contra a API real. A
